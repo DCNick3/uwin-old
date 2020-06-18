@@ -1,0 +1,4 @@
+LIBRARY OLE32.DLL
+EXPORTS
+CoCreateInstance
+CoInitialize

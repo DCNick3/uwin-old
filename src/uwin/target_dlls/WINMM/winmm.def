@@ -1,0 +1,49 @@
+LIBRARY VERSION.DLL
+EXPORTS
+auxGetDevCapsA @18
+auxGetNumDevs @20
+auxGetVolume @21
+auxSetVolume @23
+
+mciSendCommandA @50
+mciSendStringA @53
+
+midiOutClose @76
+midiOutLongMsg @84
+midiOutOpen @86
+midiOutPrepareHeader @87
+midiOutReset @88
+midiOutShortMsg @90
+midiOutUnprepareHeader @91
+
+mixerClose @100
+mixerGetControlDetailsA @101
+mixerGetLineControlsA @106
+mixerGetLineInfoA @108
+mixerGetNumDevs @110
+mixerOpen @112
+mixerSetControlDetails @113
+
+timeBeginPeriod @148
+timeEndPeriod @149
+timeGetTime @151
+timeKillEvent @152
+timeSetEvent @153
+
+waveOutClose @171
+waveOutGetDevCapsA @172
+waveOutGetID @176
+waveOutOpen @183
+waveOutPrepareHeader @185
+waveOutReset @186
+waveOutSetVolume @190
+waveOutUnprepareHeader @191
+waveOutWrite @192
+
+waveInAddBuffer
+waveInClose
+waveInOpen
+waveInPrepareHeader
+waveInReset
+waveInStart
+waveInUnprepareHeader

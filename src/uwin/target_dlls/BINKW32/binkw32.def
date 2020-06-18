@@ -1,0 +1,15 @@
+LIBRARY BINKW32.DLL
+EXPORTS
+_BinkClose@4 = BinkClose
+_BinkCopyToBuffer@28 = BinkCopyToBuffer
+_BinkDDSurfaceType@4 = BinkDDSurfaceType
+_BinkDoFrame@4 = BinkDoFrame
+_BinkGetRects@8 = BinkGetRects
+_BinkGetSummary@8 = BinkGetSummary
+_BinkGoto@12 = BinkGoto
+_BinkNextFrame@4 = BinkNextFrame
+_BinkOpen@8 = BinkOpen
+_BinkOpenMiles@4 = BinkOpenMiles
+_BinkPause@8 = BinkPause
+_BinkSetSoundSystem@8 = BinkSetSoundSystem
+_BinkWait@4 = BinkWait

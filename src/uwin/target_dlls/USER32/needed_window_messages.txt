@@ -1,0 +1,23 @@
+WM_CREATE         - init stuff
+WM_DESTROY        - finalize stuff
+WM_MOVE           - signals window move. but we emulate fullscreen only...
+WM_ACTIVATE       - used to handle minimization. Not needed (except, maybe, initial)
+WM_PAINT          - redraw needed. Probably should not be used
+WM_CLOSE          - close request, displays close promt sometimes
+WM_QUIT           - The last message that should be sent... Used to end the message queue
+WM_COMMAND        - used for handling menu. Probably not needed
+WM_KEYDOWN        - Keyboard input
+WM_KEYUP          - Keyboard input
+WM_ERASEBKGND     - used for redrawing and stuff (preparation for repaint). Not needed
+WM_ACTIVATEAPP    - handles window deactivation; probably needed only on startup
+
+WM_TIMER          - used by mss32, paired with SetTimer
+
+WM_MOUSEMOVE      - Mouse input (rest)
+WM_LBUTTONDOWN
+WM_LBUTTONUP
+WM_LBUTTONDBLCLK
+WM_RBUTTONDOWN
+WM_RBUTTONUP
+WM_RBUTTONDBLCLK
+

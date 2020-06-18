@@ -1,0 +1,11 @@
+LIBRARY KSVC.DLL
+EXPORTS
+kpanic
+kexit
+kcall0
+kcall1
+kcall2
+kcall3
+kcall4
+kcall5
+kcall6

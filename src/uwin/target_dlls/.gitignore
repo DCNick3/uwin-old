@@ -1,0 +1,7 @@
+.directory
+bin/
+debug/
+**/*.DLL
+**/*.elf
+dlls.a
+**/.depend

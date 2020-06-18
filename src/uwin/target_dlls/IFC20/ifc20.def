@@ -1,0 +1,32 @@
+LIBRARY IFC20.DLL
+EXPORTS
+ifc20_stub_create_mouse
+ifc20_stub_initialize_mouse
+ifc20_stub_panic
+ifc20_stub_error_flags
+?reset@CImmMouse@@MAEXXZ = ifc20_stub_panic
+?prepare_device@CImmMouse@@MAEHXZ = ifc20_stub_panic
+?SwitchToAbsoluteMode@CImmMouse@@UAEHH@Z = ifc20_stub_panic
+?ChangeScreenResolution@CImmMouse@@UAEHHKK@Z = ifc20_stub_panic
+?GetDevice@CImmMouse@@UAEPAUIFeelitDevice@@XZ = ifc20_stub_panic
+?GetAPI@CImmMouse@@UAEPAUIFeelit@@XZ = ifc20_stub_panic
+?LoadProjectFromMemory@CImmProject@@QAEHPAXPAVCImmDevice@@@Z = ifc20_stub_panic
+?Initialize@CImmMouse@@QAEHPAX0K@Z = ifc20_stub_initialize_mouse
+??0CImmMouse@@QAE@XZ = ifc20_stub_create_mouse
+?m_dwErrHandlingFlags@CIFCErrors@@0KA = ifc20_stub_error_flags
+??1CImmMouse@@UAE@XZ = ifc20_stub_destroy_mouse
+??1CImmProject@@QAE@XZ = ifc20_stub_panic
+?Close@CImmProject@@QAEXXZ = ifc20_stub_panic
+?SetRect@CImmEnclosure@@QAEHPBUtagRECT@@@Z = ifc20_stub_panic
+?Start@CImmCompoundEffect@@QAEHKK@Z = ifc20_stub_panic
+?CreateEffect@CImmProject@@QAEPAVCImmCompoundEffect@@PBDPAVCImmDevice@@K@Z = ifc20_stub_panic
+?DestroyEffect@CImmProject@@QAEXPAVCImmCompoundEffect@@@Z = ifc20_stub_panic
+?Start@CImmEnclosure@@UAEHK@Z = ifc20_stub_panic
+?Stop@CImmEnclosure@@UAEHXZ = ifc20_stub_panic
+?Start@CImmEffect@@UAEHKKH@Z = ifc20_stub_panic
+?InitializeFromProject@CImmEffect@@UAEHAAVCImmProject@@PBDPAVCImmDevice@@K@Z = ifc20_stub_panic
+?Initialize@CImmEnclosure@@UAEHPAVCImmDevice@@ABUFEELIT_EFFECT@@K@Z = ifc20_stub_panic
+?GetIsCompatibleGUID@CImmEnclosure@@UAEHAAU_GUID@@@Z = ifc20_stub_panic
+?Initialize@CImmEnclosure@@QAEHPAVCImmDevice@@PBUtagRECT@@JJKKKKKKPAVCImmEffect@@JK@Z = ifc20_stub_initialize_enclosure
+??0CImmEnclosure@@QAE@XZ = ifc20_stub_create_enclosure
+??1CImmEnclosure@@UAE@XZ = ifc20_stub_destroy_enclosure

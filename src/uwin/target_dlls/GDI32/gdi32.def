@@ -1,0 +1,22 @@
+LIBRARY GDI32.DLL
+EXPORTS
+BitBlt
+CreateCompatibleBitmap
+CreateCompatibleDC
+CreatePalette
+DeleteDC
+DeleteObject
+GdiSetBatchLimit
+GetDIBits
+GetDeviceCaps
+GetPixel
+GetSystemPaletteEntries
+GetSystemPaletteUse
+PatBlt
+RealizePalette
+SelectObject
+SelectPalette
+SetPixel
+SetStretchBltMode
+StretchBlt
+StretchDIBits

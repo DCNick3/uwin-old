@@ -1,0 +1,12 @@
+LIBRARY WSOCK32.DLL
+EXPORTS
+bind @2
+closesocket @3
+htonl @8
+htons @9
+inet_ntoa @11
+ioctlsocket @12
+socket @23
+gethostbyname @52
+gethostname @57
+WSAStartup @115

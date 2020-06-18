@@ -1,0 +1,52 @@
+LIBRARY MSS32.DLL
+EXPORTS
+_AIL_HWND@0 = AIL_HWND
+_AIL_allocate_sample_handle@4 = AIL_allocate_sample_handle
+_AIL_close_stream@4 = AIL_close_stream
+_AIL_digital_configuration@16 = AIL_digital_configuration
+_AIL_end_sample@4 = AIL_end_sample
+_AIL_get_preference@4 = AIL_get_preference
+_AIL_init_sample@4 = AIL_init_sample
+_AIL_open_stream@12 = AIL_open_stream
+_AIL_pause_stream@8 = AIL_pause_stream
+_AIL_resume_sample@4 = AIL_resume_sample
+_AIL_sample_status@4 = AIL_sample_status
+_AIL_sample_volume@4 = AIL_sample_volume
+_AIL_serve@0 = AIL_serve
+_AIL_service_stream@8 = AIL_service_stream
+_AIL_set_preference@8 = AIL_set_preference
+_AIL_set_sample_file@12 = AIL_set_sample_file
+_AIL_set_sample_loop_count@8 = AIL_set_sample_loop_count
+_AIL_set_sample_volume@8 = AIL_set_sample_volume
+_AIL_set_stream_loop_count@8 = AIL_set_stream_loop_count
+_AIL_set_stream_position@8 = AIL_set_stream_position
+_AIL_set_stream_volume@8 = AIL_set_stream_volume
+_AIL_shutdown@0 = AIL_shutdown
+_AIL_start_sample@4 = AIL_start_sample
+_AIL_start_stream@4 = AIL_start_stream
+_AIL_startup@0 = AIL_startup
+_AIL_stop_sample@4 = AIL_stop_sample
+_AIL_stream_position@4 = AIL_stream_position
+_AIL_stream_status@4 = AIL_stream_status
+_AIL_stream_volume@4 = AIL_stream_volume
+_AIL_waveOutClose@4 = AIL_waveOutClose
+_AIL_waveOutOpen@16 = AIL_waveOutOpen
+
+_AIL_minimum_sample_buffer_size@12 = AIL_minimum_sample_buffer_size
+_AIL_set_sample_type@12 = AIL_set_sample_type
+_AIL_set_sample_playback_rate@8 = AIL_set_sample_playback_rate
+_AIL_set_sample_user_data@12 = AIL_set_sample_user_data
+_AIL_set_sample_pan@8 = AIL_set_sample_pan
+_AIL_sample_buffer_ready@4 = AIL_sample_buffer_ready
+_AIL_load_sample_buffer@16 = AIL_load_sample_buffer
+_AIL_release_sample_handle@4 = AIL_release_sample_handle
+_AIL_sample_buffer_info@20 = AIL_sample_buffer_info
+_AIL_lock@0 = AIL_lock
+_AIL_unlock@0 = AIL_unlock
+_AIL_register_timer@4 = AIL_register_timer
+_AIL_set_timer_frequency@8 = AIL_set_timer_frequency
+_AIL_start_timer@4 = AIL_start_timer
+_AIL_release_timer_handle@4 = AIL_release_timer_handle
+_AIL_mem_alloc_lock@4 = AIL_mem_alloc_lock
+_AIL_mem_free_lock@4 = AIL_mem_free_lock
+
