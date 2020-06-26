@@ -1236,7 +1236,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
    appropriate flags) followed by a sljit_emit_jump. However some
    architectures (i.e: ARM64 or MIPS) may employ special optimizations here.
    It is suggested to use this comparison form when appropriate.
-    type must be between SLJIT_EQUAL and SLJIT_I_SIG_LESS_EQUAL
+    type must be between SLJIT_EQUAL and SLJIT_SIG_LESS_EQUAL
     type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
 
    Flags: may destroy flags. */

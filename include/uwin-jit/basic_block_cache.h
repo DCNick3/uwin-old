@@ -5,14 +5,16 @@
 #ifndef UWIN_BASIC_BLOCK_CACHE_H
 #define UWIN_BASIC_BLOCK_CACHE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <memory>
 
+#include "uwin-jit/basic_block.h"
 
+namespace uwin {
+    namespace jit {
 
-#ifdef __cplusplus
-};
-#endif
+        std::shared_ptr<basic_block> get_basic_block(cpu_static_context& ctx, uint32_t eip);
+
+    }
+}
 
 #endif //UWIN_BASIC_BLOCK_CACHE_H

@@ -17,13 +17,15 @@
  *  along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "uwin/uwin.h"
-#include "uwin/uwindows.h"
-#include "uwin/uwinerr.h"
-#include "uwin/util/align.h"
-#include "uwin/util/mem.h"
-#include "uwin/util/str.h"
-#include "uwin/util/file.h"
+extern "C" {
+    #include "uwin/uwin.h"
+    #include "uwin/uwindows.h"
+    #include "uwin/uwinerr.h"
+    #include "uwin/util/align.h"
+    #include "uwin/util/mem.h"
+    #include "uwin/util/str.h"
+    #include "uwin/util/file.h"
+}
 
 #include "fcaseopen.h"
 #include "stb_ds.h"
@@ -33,8 +35,13 @@
 struct ldr_override
 {
     const char* name;
-    const void* data;
+    const uint8_t* data;
 };
+
+template<typename T>
+static inline T* g2hx(uint32_t addr) {
+    return static_cast<T*>(g2h(addr));
+}
 
 #define embedded_data_define(name) extern const uint8_t _binary_ ## name ## _start[];
 #define embedded_data_ref(name) _binary_ ## name ## _start
@@ -103,8 +110,8 @@ static module_t* load_pe_module(const char* module_name);
 static uint32_t find_function_by_ordinal(module_t* module, uint32_t biased_ordinal)
 {
     assert(module->export_directory != 0);
-    IMAGE_EXPORT_DIRECTORY* export_table = g2h(module->export_directory);
-    DWORD* export_entries = g2h(module->image_base + export_table->ExportAddressTableRVA);
+    auto export_table = g2hx<IMAGE_EXPORT_DIRECTORY>(module->export_directory);
+    auto export_entries = g2hx<DWORD>(module->image_base + export_table->ExportAddressTableRVA);
     
     uint32_t ordinal = biased_ordinal - export_table->OrdinalBase;
     
@@ -118,16 +125,16 @@ static uint32_t find_function_by_ordinal(module_t* module, uint32_t biased_ordin
 static uint32_t find_function_by_name(module_t* module, const char* name)
 {
     assert(module->export_directory != 0);
-    IMAGE_EXPORT_DIRECTORY* export_table = g2h(module->export_directory);
+    auto export_table = g2hx<IMAGE_EXPORT_DIRECTORY>(module->export_directory);
     
     assert(export_table->NamePointerRVA != 0);
     
     int name_count = export_table->NamePointerCount;
-    DWORD* names_table = g2h(module->image_base + export_table->NamePointerRVA);
-    WORD* ordinal_table = g2h(module->image_base + export_table->OrdinalTableRVA);
+    auto names_table = g2hx<DWORD>(module->image_base + export_table->NamePointerRVA);
+    auto ordinal_table = g2hx<WORD>(module->image_base + export_table->OrdinalTableRVA);
     
     for (int i = 0; i < name_count; i++) {
-        char* candidate_name = g2h(module->image_base + names_table[i]);
+        auto candidate_name = g2hx<char>(module->image_base + names_table[i]);
         if (strcmp(candidate_name, name) == 0) {
             return find_function_by_ordinal(module, export_table->OrdinalBase + ordinal_table[i]);
         }
@@ -143,8 +150,19 @@ static int process_reloc(module_t* module, uint32_t page_rva, uint16_t relocatio
         case IMAGE_REL_BASED_ABSOLUTE:
             // Actually a no-op reloc
             return 0;
-        case IMAGE_REL_BASED_HIGHLOW:\
-            *(uint32_t*)address = *(uint32_t*)address + difference;
+        case IMAGE_REL_BASED_HIGHLOW:
+            // enforce natural alignment
+            if ((uintptr_t)address % 0x4 == 0)
+                *(uint32_t*)address = *(uint32_t*)address + difference;
+            else {
+                uint8_t* ptr = static_cast<uint8_t*>(address);
+                uint32_t value = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+                value += difference;
+                ptr[0] = value & 0xff;
+                ptr[1] = (value >> 8) & 0xff;
+                ptr[2] = (value >> 16) & 0xff;
+                ptr[3] = (value >> 24) & 0xff;
+            }
             return 0;
         default:
             uw_log("unsupported relocation type: %d\n", type);
@@ -153,7 +171,7 @@ static int process_reloc(module_t* module, uint32_t page_rva, uint16_t relocatio
 }
 
 // load and link pe file from data. fills module_t structure
-static int load_pe(const void* pe_file_data, module_t* pmodule)
+static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
 {
     uw_log("loading %s file from %p...\n", pmodule->name, pe_file_data);
     
@@ -212,7 +230,7 @@ static int load_pe(const void* pe_file_data, module_t* pmodule)
     pmodule->image_base = image_base;
     pmodule->code_base = image_base + op_header->BaseOfCode;
     
-    IMAGE_SECTION_HEADER* sections = (IMAGE_SECTION_HEADER*)(((void*)op_header) + nt_header->SizeOfOptionalHeader);
+    IMAGE_SECTION_HEADER* sections = (IMAGE_SECTION_HEADER*)(((uint8_t*)op_header) + nt_header->SizeOfOptionalHeader);
     uw_log("Sections:\n");
     uw_log(" #  name     bgnaddr  endaddr  datasize virtsize dataptr  access\n");
     for (int i = 0; i < nt_header->NumberOfSections; i++) {
@@ -241,15 +259,15 @@ static int load_pe(const void* pe_file_data, module_t* pmodule)
         uw_log("Applying relocations...\n");
         int32_t difference = image_base - op_header->ImageBase;
         
-        BASE_RELOC_BLOCK* reloc_table = g2h(image_base + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
-        BASE_RELOC_BLOCK* reloc_table_end = ((void*)reloc_table) + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+        auto reloc_table = g2hx<BASE_RELOC_BLOCK>(image_base + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
+        auto reloc_table_end = reinterpret_cast<BASE_RELOC_BLOCK*>(((uint8_t*)reloc_table) + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size);
         
         while (reloc_table < reloc_table_end) {
             for (size_t i = 0; i < (reloc_table->BlockSize - 8) / 2; i++) {
                 process_reloc(pmodule, reloc_table->PageRVA, reloc_table->RelocData[i], difference);
             }
             
-            reloc_table = ((void*)reloc_table) + reloc_table->BlockSize;
+            reloc_table = reinterpret_cast<BASE_RELOC_BLOCK*>(((uint8_t*)reloc_table) + reloc_table->BlockSize);
         }
     }
      
@@ -275,14 +293,14 @@ static int load_pe(const void* pe_file_data, module_t* pmodule)
     
     if (op_header->NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_IMPORT) {
         uw_log("op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = %d\n", op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size);
-        IMAGE_IMPORT_MODULE_DIRECTORY* pimp = g2h(image_base + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+        auto pimp = g2hx<IMAGE_IMPORT_MODULE_DIRECTORY>(image_base + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
         while(pimp->dwLookupTableRVA) { /* the table is null-terminated */
-            const char* name = g2h(image_base + pimp->dwRVAModuleName);
+            auto name = g2hx<const char>(image_base + pimp->dwRVAModuleName);
             
             module_t* mod = load_pe_module(name);
             
-            DWORD* pilt = g2h(image_base + pimp->dwLookupTableRVA);
-            DWORD* thunk = g2h(image_base + pimp->dwThunkTableRVA);
+            auto pilt = g2hx<DWORD>(image_base + pimp->dwLookupTableRVA);
+            auto thunk = g2hx<DWORD>(image_base + pimp->dwThunkTableRVA);
             
             while (*pilt != 0) {
                 DWORD ilt = *pilt;
@@ -292,7 +310,7 @@ static int load_pe(const void* pe_file_data, module_t* pmodule)
                 if (ilt & 0x80000000) {
                     *thunk = find_function_by_ordinal(mod, ilt & (~0x80000000));
                 } else {
-                    HINT_NAME_IMPORT_ENTRY* hint_entry = g2h(image_base + ilt);
+                    auto hint_entry = g2hx<HINT_NAME_IMPORT_ENTRY>(image_base + ilt);
                     dbg_name = (char*)hint_entry->szName; 
                     *thunk = find_function_by_name(mod, (char*)hint_entry->szName);
                 }
@@ -371,41 +389,43 @@ static module_t* load_pe_module(const char* module_name)
     pmodule->name = uw_ascii_strdown(module_name, -1);
     
     int res = -1;
+    bool found_override = false;
     for (size_t i = 0; i < sizeof(ldr_overrides) / sizeof(*ldr_overrides); i++) {
         if (uw_ascii_strcasecmp(module_name, ldr_overrides[i].name) == 0) {
             uw_log("found override\n");
             res = load_pe(ldr_overrides[i].data, pmodule);
-            goto register_module;
+            found_override = true;
         }
     }
-    
-    char* full_filename = uw_strconcat(module_path, "/", module_name, NULL);
-    
-    uw_log("override not found, opening %s...\n", full_filename);
-    
-    FILE* f = fcaseopen(full_filename, "rb");
-    assert(f != NULL);
-    
-    uw_free(full_filename);
-    
-    int r = fseek(f, 0, SEEK_END);
-    assert(r != -1);
-    long size = ftell(f);
-    assert(size != -1);
-    r = fseek(f, 0, SEEK_SET);
-    assert(r != -1);
-    
-    void* data = uw_malloc(size);
-    
-    int read = fread(data, 1, size, f);
-    assert(read == size);
-    fclose(f);
-    
-    res = load_pe(data, pmodule);
-    
-    uw_free(data);
-    
-register_module:
+
+    if (!found_override) {
+        char *full_filename = uw_strconcat(module_path, "/", module_name, NULL);
+
+        uw_log("override not found, opening %s...\n", full_filename);
+
+        FILE *f = fcaseopen(full_filename, "rb");
+        assert(f != NULL);
+
+        uw_free(full_filename);
+
+        int r = fseek(f, 0, SEEK_END);
+        assert(r != -1);
+        long size = ftell(f);
+        assert(size != -1);
+        r = fseek(f, 0, SEEK_SET);
+        assert(r != -1);
+
+        auto data = uw_new(uint8_t, size);
+
+        int read = fread(data, 1, size, f);
+        assert(read == size);
+        fclose(f);
+
+        res = load_pe(data, pmodule);
+
+        uw_free(data);
+    }
+
     if (res == 0) {
         char* lo = uw_ascii_strdown(module_name, -1);
         stbds_shput(module_table, lo, pmodule);
@@ -450,7 +470,7 @@ void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_t
     int init_count = stbds_arrlen(library_init_routines);
     uint32_t init_list = uw_target_map_memory_dynamic(
             UW_ALIGN_UP((init_count + 1) * sizeof(library_init_routine_t), uw_host_page_size), UW_PROT_RW);
-    library_init_routine_t* h_init_list = g2h(init_list);
+    auto h_init_list = g2hx<library_init_routine_t>(init_list);
     memcpy(h_init_list, library_init_routines, init_count * sizeof(library_init_routine_t));
     h_init_list[init_count] = (library_init_routine_t){0, 0};
     
@@ -458,7 +478,7 @@ void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_t
     
     uint32_t command_line = uw_target_map_memory_dynamic(UW_ALIGN_UP(strlen(exec_name) + 1, uw_host_page_size),
                                                          UW_PROT_RW);
-    strcpy(g2h(command_line), exec_name);
+    strcpy(g2hx<char>(command_line), exec_name);
     
     //abi_ulong target_last_error = uw_target_map_memory_dynamic(uw_host_page_size, UW_PROT_RW);
     //win32_last_error = g2h(target_last_error);

@@ -196,6 +196,9 @@ int cpu_interrupt(int vector, int error_code, int type, int eip_to_push)
 }
 
 void uw_cpu_loop(void* cpu_context) {
+    uint64_t cycle_count = 0;
+    uint64_t start = uw_get_monotonic_time();
+    uint64_t now = uw_get_monotonic_time();
     while (1) {
 
         pthread_mutex_lock(&uw_current_thread_data->suspend_mutex);
@@ -211,10 +214,11 @@ void uw_cpu_loop(void* cpu_context) {
 
         pthread_mutex_unlock(&uw_current_thread_data->suspend_mutex);
 
-        int reason = cpu_run(TICKS);
-        if (reason == EXIT_STATUS_HLT) {
-            uw_log("loop ended because of the HLT\n");
-            abort();
-        }
+        cycle_count += cpu_run(TICKS);
+        now = uw_get_monotonic_time();
+        if (cycle_count == UINT64_MAX)
+            break;
     }
+
+    uw_log("%lu %lu %lu\n", (unsigned long)start, (unsigned long)now, (unsigned long)cycle_count);
 }

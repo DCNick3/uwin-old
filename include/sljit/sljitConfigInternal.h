@@ -27,6 +27,8 @@
 #ifndef _SLJIT_CONFIG_INTERNAL_H_
 #define _SLJIT_CONFIG_INTERNAL_H_
 
+#include "sljitConfig.h"
+
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 	|| (defined SLJIT_DEBUG && SLJIT_DEBUG && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
 #include <stdio.h>

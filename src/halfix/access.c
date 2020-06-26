@@ -3,12 +3,13 @@
 int cpu_access_read8(uint32_t addr, uint32_t tag, int shift)
 {
     // Check for unmapped addresses
-    if (tag & 2) {
+    /*if (tag & 2) {
         if (cpu_mmu_translate(addr, shift))
             return 1;
         tag = thread_cpu.tlb_tags[addr >> 12] >> shift;
     }
-    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;
+    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;*/
+    void* host_ptr = g2h(addr);
     thread_cpu.read_result = *(_Atomic(uint8_t)*)host_ptr;
     return 0;
 }
@@ -25,13 +26,14 @@ int cpu_access_read16(uint32_t addr, uint32_t tag, int shift)
         thread_cpu.read_result = res;
         return 0;
     }
-
+    /*
     if (tag & 2) {
         if (cpu_mmu_translate(addr, shift))
             return 1;
         tag = thread_cpu.tlb_tags[addr >> 12] >> shift;
     }
-    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;
+    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;*/
+    void* host_ptr = g2h(addr);
     thread_cpu.read_result = *(_Atomic(uint16_t)*)host_ptr;
     return 0;
 }
@@ -48,24 +50,27 @@ int cpu_access_read32(uint32_t addr, uint32_t tag, int shift)
         return 0;
     }
 
+    /*
     if (tag & 2) {
         if (cpu_mmu_translate(addr, shift))
             return 1;
         tag = thread_cpu.tlb_tags[addr >> 12] >> shift;
     }
-    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;
+    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;*/
+    void* host_ptr = g2h(addr);
     thread_cpu.read_result = *(_Atomic(uint32_t)*)host_ptr;
     return 0;
 }
 
 int cpu_access_write8(uint32_t addr, uint32_t data, uint32_t tag, int shift)
 {
-    if (tag & 2) {
+    /*if (tag & 2) {
         if (cpu_mmu_translate(addr, shift))
             return 1;
         tag = thread_cpu.tlb_tags[addr >> 12] >> shift;
     }
-    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;
+    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;*/
+    void* host_ptr = g2h(addr);
     uint32_t phys = PTR_TO_PHYS(host_ptr);
 
     if (cpu_smc_has_code(phys))
@@ -82,12 +87,14 @@ int cpu_access_write16(uint32_t addr, uint32_t data, uint32_t tag, int shift)
         }
         return 0;
     }
-    if (tag & 2) {
+    /*if (tag & 2) {
         if (cpu_mmu_translate(addr, shift))
             return 1;
         tag = thread_cpu.tlb_tags[addr >> 12] >> shift;
     }
-    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;
+    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;*/
+
+    void* host_ptr = g2h(addr);
     uint32_t phys = PTR_TO_PHYS(host_ptr);
     if (cpu_smc_has_code(phys))
         cpu_smc_invalidate(addr, phys);
@@ -104,12 +111,14 @@ int cpu_access_write32(uint32_t addr, uint32_t data, uint32_t tag, int shift)
         return 0;
     }
 
-    if (tag & 2) {
+    /*if (tag & 2) {
         if (cpu_mmu_translate(addr, shift))
             return 1;
         tag = thread_cpu.tlb_tags[addr >> 12] >> shift;
     }
-    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;
+    void* host_ptr = thread_cpu.tlb[addr >> 12] + addr;*/
+
+    void* host_ptr = g2h(addr);
     uint32_t phys = PTR_TO_PHYS(host_ptr);
     if (cpu_smc_has_code(phys))
         cpu_smc_invalidate(addr, phys);

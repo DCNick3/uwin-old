@@ -44,9 +44,8 @@ int32_t uw_sem_wait(uw_sem_t* sem, uint64_t tmout_us) {
         int r = sem_timedwait(&sem->sem, &tv);
         if (r == 0)
             return 0;
-        r = errno;
         if (r != ETIMEDOUT) {
-            perror("sem wait error");
+            //perror("sem wait error");
             assert(r == ETIMEDOUT);
         }
 
@@ -87,9 +86,8 @@ int32_t uw_mut_lock(uw_mut_t* mut, uint64_t tmout_us) {
         int r = pthread_mutex_timedlock(&mut->mut, &tv);
         if (r == 0)
             return 0;
-        r = errno;
         if (r != ETIMEDOUT) {
-            perror("mut wait error");
+            //perror("mut wait error");
             assert(r == ETIMEDOUT);
         }
 
@@ -133,9 +131,8 @@ int32_t uw_cond_wait(uw_cond_t* cond, uw_mut_t* mut, uint64_t tmout_us) {
         int r = pthread_cond_timedwait(&cond->cond, &mut->mut, &tv);
         if (r == 0)
             return 0;
-        r = errno;
         if (r != ETIMEDOUT) {
-            perror("cond wait error");
+            //perror("cond wait error");
             assert(r == ETIMEDOUT);
         }
 

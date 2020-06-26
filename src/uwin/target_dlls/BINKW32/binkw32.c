@@ -86,7 +86,7 @@ bink_t* BINK BinkOpen(const char* name, uint32_t flags) {
     memset(this, 0, sizeof(bink_t));
     this->width = 400;
     this->height = 300;
-    this->total_frames = 600;
+    this->total_frames = 10;
     this->frame = 1;
     
     return this;

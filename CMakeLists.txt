@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.10)
 project(uwin C CXX)
 
 set(CMAKE_C_STANDARD 11)
@@ -41,8 +41,11 @@ set(SLJIT_SOURCES
 
 set(JIT_SOURCES
         ${SLJIT_SOURCES}
-        src/uwin/jit_cpu_loop.c
-        src/uwin-jit/basic_block_cache.cpp)
+        src/uwin/jit_cpu_loop.cpp
+        src/uwin-jit/basic_block.cpp
+        src/uwin-jit/basic_block_compiler.cpp
+        src/uwin-jit/basic_block_cache.cpp
+        src/uwin-jit/sljit.cpp)
 
 set(UWIN_POSIX_SOURCES
         src/uwin/host/posix/memory_map.c
@@ -57,15 +60,14 @@ set(UWIN_SOURCES
         src/uwin/util/file.c
         src/uwin/util/str.c
         src/uwin/util/mem.c
-        src/uwin/ldr.c
+        src/uwin/ldr.cpp
         src/uwin/thread.c
         src/uwin/handletable.c
         src/uwin/syscall.c
         src/uwin/cfg.c
-        src/uwin/file.cc
+        src/uwin/file.cpp
         src/uwin/win32_mq.c
-        src/uwin/sdl_ui.c
-        src/uwin/sdl_gmq.c
+        src/uwin/sdl_ui_gmq.cpp
         src/fcaseopen.c
         src/main.c
         src/stb_ds.c
@@ -84,20 +86,33 @@ endif()
 if (USE_JIT)
     list(APPEND UWIN_SOURCES ${JIT_SOURCES})
     add_definitions(-DUW_USE_JIT)
+
+    option(ZYDIS_BUILD_TOOLS "" OFF)
+    option(ZYDIS_BUILD_EXAMPLES "" OFF)
+    add_subdirectory("ext-deps/zydis")
 endif()
 
-if (CMAKE_BUILD_TYPE EQUAL "DEBUG")
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DUW_DEBUG)
-endif (CMAKE_BUILD_TYPE EQUAL "DEBUG")
+endif (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 #set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
 #set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
 
+include_directories(${SDL2_INCLUDE_DIRS})
+
 add_executable(uwin
         ${UWIN_SOURCES})
-
 
 add_custom_command(OUTPUT ${DLLS_FILE} dummy_file_that_will_never_exist
         COMMAND make -j1 -C ${CMAKE_SOURCE_DIR}/src/uwin/target_dlls DEST_FILE="${DLLS_FILE}")
 
-target_link_libraries(uwin m Threads::Threads SDL2::SDL2)
+if("${SDL2_LIBRARIES}" STREQUAL "")
+    set(SDL2_LIBRARIES "SDL2::SDL2")
+endif()
+
+target_link_libraries(uwin m Threads::Threads ${SDL2_LIBRARIES})
+
+if (USE_JIT)
+    target_link_libraries(uwin Zydis)
+endif()

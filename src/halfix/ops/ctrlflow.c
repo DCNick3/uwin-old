@@ -412,7 +412,7 @@ void cpu_exception(int vec, int code)
         }
 #ifndef EMSCRIPTEN
         CPU_LOG("HALFIX EXCEPTION: %02x(%04x) @ EIP=%08x lin=%08x\n", vec, code, VIRT_EIP(), LIN_EIP());
-        if(LIN_EIP() == 0x00010063) __asm__("int3");
+        //if(LIN_EIP() == 0x00010063) __asm__("int3");
 #endif
         current_exception = vec;
         if (cpu_interrupt(vec, code, INTERRUPT_TYPE_EXCEPTION, VIRT_EIP()))

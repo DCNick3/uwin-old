@@ -1,6 +1,10 @@
 #ifndef QEMU_H
 #define QEMU_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 //#include <windows.h>
 //#include <winternl.h>
@@ -138,6 +142,7 @@ void* uw_cpu_alloc_context();
 void uw_cpu_free_context(void* cpu_context);
 void uw_cpu_panic(const char* message);
 void uw_cpu_setup_thread(void* cpu_context, uw_target_thread_data_t *params);
+
 void uw_cpu_loop(void* cpu_context);
 
 uint64_t uw_get_time_us(void);  // TODO: migrate from this function
@@ -350,5 +355,8 @@ extern __thread uw_target_thread_data_t* uw_current_thread_data;
 //extern abi_ulong target_idt_base;
 //extern abi_ulong target_gdt_base;
 
+#ifdef __cplusplus
+};
+#endif
 
 #endif /* QEMU_H */

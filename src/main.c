@@ -17,6 +17,12 @@ int main(int argc, char** argv)
     
     const char *exec_path = argv[1];
 
+    FILE* f = fopen(exec_path, "r");
+    if (f == NULL) {
+        perror("Cannot open provided program");
+        return -1;
+    } else
+        fclose(f);
     
     uw_target_process_data_t* process_data = uw_new(uw_target_process_data_t, 1);
     
@@ -47,6 +53,10 @@ int main(int argc, char** argv)
         //uw_log("gmq message: %02x %p %p\n", msg.message, msg.param1, msg.param2);
         if (msg.message == UW_GM_QUIT)
             break;
+
+        //if (msg.message == UW_GM_FLIP_SURFACE)
+        //    uw_ui_surf_flip_primary();
+
         uw_win32_mq_publish_global_message(&msg);
     }
     
