@@ -27,10 +27,16 @@ extern "C" {
     #include "uwin/util/file.h"
 }
 
+#include <string.h>
 #include "fcaseopen.h"
-#include "stb_ds.h"
 
 #include <assert.h>
+
+#include <vector>
+#include <unordered_map>
+#include <memory>
+#include <algorithm>
+#include <cctype>
 
 struct ldr_override
 {
@@ -43,71 +49,69 @@ static inline T* g2hx(uint32_t addr) {
     return static_cast<T*>(g2h(addr));
 }
 
+#define LDR_OVERRIDES \
+    X(INIT) \
+    X(KSVC) \
+    X(IFC20) \
+    X(VERSION) \
+    X(WINMM) \
+    X(KERNEL32) \
+    X(USER32) \
+    X(GDI32) \
+    X(ADVAPI32) \
+    X(OLE32) \
+    X(DDRAW) \
+    X(WSOCK32) \
+    X(SHELL32) \
+    X(MSS32) \
+    X(BINKW32)
+
 #define embedded_data_define(name) extern const uint8_t _binary_ ## name ## _start[];
 #define embedded_data_ref(name) _binary_ ## name ## _start
 
-#define do1(x) embedded_data_define(x ## _DLL)
-#define do2(x) { #x ".DLL", embedded_data_ref(x ## _DLL) }
-do1(INIT)
-do1(KSVC)
-do1(IFC20)
-do1(VERSION)
-do1(WINMM)
-do1(KERNEL32)
-do1(USER32)
-do1(GDI32)
-do1(ADVAPI32)
-do1(OLE32)
-do1(DDRAW)
-do1(WSOCK32)
-do1(SHELL32)
-do1(MSS32)
-do1(BINKW32)
+#define X(x) embedded_data_define(x ## _DLL)
+LDR_OVERRIDES
+#undef X
+
 static struct ldr_override ldr_overrides[] = {
-    do2(INIT),
-    do2(KSVC),
-    do2(IFC20),
-    do2(VERSION),
-    do2(WINMM),
-    do2(KERNEL32),
-    do2(USER32),
-    do2(GDI32),
-    do2(ADVAPI32),
-    do2(OLE32),
-    do2(DDRAW),
-    do2(WSOCK32),
-    do2(SHELL32),
-    do2(MSS32),
-    do2(BINKW32),
+#define X(x) { #x ".DLL", embedded_data_ref(x ## _DLL) },
+        LDR_OVERRIDES
+#undef X
 };
-#undef do1
-#undef do2
 #undef embedded_data_define
 #undef embedded_data_ref
 
-typedef struct {
-    char* name;
+struct module {
+    std::string name;
     uint32_t image_base;
     uint32_t entry_point;
     uint32_t export_directory;
     uint32_t export_directory_size;
     uint32_t stack_size;
     uint32_t code_base;
-} module_t;
 
-typedef struct {
+    module(std::string name) : name(name) {}
+};
+
+struct library_init_routine {
     uint32_t hinst;
     uint32_t routine;
-} library_init_routine_t;
+
+    library_init_routine(uint32_t hinst, uint32_t routine)
+        : hinst(hinst), routine(routine) {}
+
+    library_init_routine(module& module)
+        : hinst(module.image_base), routine(module.entry_point) {}
+};
 
 
-static library_init_routine_t *library_init_routines = NULL;
-static struct { char *key; module_t* value; } *module_table = NULL; //name to module_t*, owns
-static struct { uint32_t key; module_t* value; } *hinstance_table = NULL; //hinstance to module_t*
+static std::vector<library_init_routine> library_init_routines;
+static std::unordered_map<std::string, std::unique_ptr<module>> module_table;
+static std::unordered_map<uint32_t, module*> hinstance_table;
 
-static module_t* load_pe_module(const char* module_name);
+static module* load_pe_module(std::string module_name);
 
-static uint32_t find_function_by_ordinal(module_t* module, uint32_t biased_ordinal)
+static uint32_t find_function_by_ordinal(module* module, uint32_t biased_ordinal)
 {
     assert(module->export_directory != 0);
     auto export_table = g2hx<IMAGE_EXPORT_DIRECTORY>(module->export_directory);
@@ -122,7 +126,7 @@ static uint32_t find_function_by_ordinal(module_t* module, uint32_t biased_ordin
     return module->image_base + rva;
 }
 
-static uint32_t find_function_by_name(module_t* module, const char* name)
+static uint32_t find_function_by_name(module* module, const char* name)
 {
     assert(module->export_directory != 0);
     auto export_table = g2hx<IMAGE_EXPORT_DIRECTORY>(module->export_directory);
@@ -143,8 +147,8 @@ static uint32_t find_function_by_name(module_t* module, const char* name)
     return 0;
 }
 
-static int process_reloc(module_t* module, uint32_t page_rva, uint16_t relocation, int32_t difference) {
-    void* address = g2h((relocation & 0x0fff) + page_rva + module->image_base);
+static int process_reloc(const module& module, uint32_t page_rva, uint16_t relocation, int32_t difference) {
+    void* address = g2h((relocation & 0x0fff) + page_rva + module.image_base);
     int type = relocation >> 12;
     switch (type) {
         case IMAGE_REL_BASED_ABSOLUTE:
@@ -170,10 +174,10 @@ static int process_reloc(module_t* module, uint32_t page_rva, uint16_t relocatio
     }
 }
 
-// load and link pe file from data. fills module_t structure
-static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
+// load and link pe file from data. fills module structure
+static int load_pe(const uint8_t* pe_file_data, module& mod)
 {
-    uw_log("loading %s file from %p...\n", pmodule->name, pe_file_data);
+    uw_log("loading %s file from %p...\n", mod.name.c_str(), pe_file_data);
     
     IMAGE_DOS_HEADER *header = (IMAGE_DOS_HEADER*) pe_file_data;
     assert(header->e_magic == IMAGE_DOS_SIGNATURE);
@@ -226,9 +230,9 @@ static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
         image_base = uw_target_map_memory_dynamic(op_header->SizeOfImage, UW_PROT_N); /* reserve the memory */
         assert(image_base != (uint32_t)-1);
     }
-    
-    pmodule->image_base = image_base;
-    pmodule->code_base = image_base + op_header->BaseOfCode;
+
+    mod.image_base = image_base;
+    mod.code_base = image_base + op_header->BaseOfCode;
     
     IMAGE_SECTION_HEADER* sections = (IMAGE_SECTION_HEADER*)(((uint8_t*)op_header) + nt_header->SizeOfOptionalHeader);
     uw_log("Sections:\n");
@@ -264,7 +268,7 @@ static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
         
         while (reloc_table < reloc_table_end) {
             for (size_t i = 0; i < (reloc_table->BlockSize - 8) / 2; i++) {
-                process_reloc(pmodule, reloc_table->PageRVA, reloc_table->RelocData[i], difference);
+                process_reloc(mod, reloc_table->PageRVA, reloc_table->RelocData[i], difference);
             }
             
             reloc_table = reinterpret_cast<BASE_RELOC_BLOCK*>(((uint8_t*)reloc_table) + reloc_table->BlockSize);
@@ -272,20 +276,20 @@ static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
     }
      
     if (op_header->AddressOfEntryPoint != 0) {
-        pmodule->entry_point = image_base + op_header->AddressOfEntryPoint;
+        mod.entry_point = image_base + op_header->AddressOfEntryPoint;
     }
     else {
-        pmodule->entry_point = 0;
+        mod.entry_point = 0;
     }
     if (op_header->NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_EXPORT) {
-        pmodule->export_directory = image_base + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
-        pmodule->export_directory_size = op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
+        mod.export_directory = image_base + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+        mod.export_directory_size = op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
     } else {
-        pmodule->export_directory = 0;
-        pmodule->export_directory_size = 0;
+        mod.export_directory = 0;
+        mod.export_directory_size = 0;
     }
-    
-    pmodule->stack_size = op_header->SizeOfStackReserve;
+
+    mod.stack_size = op_header->SizeOfStackReserve;
     
     // now look at import table and populate it
     
@@ -296,8 +300,8 @@ static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
         auto pimp = g2hx<IMAGE_IMPORT_MODULE_DIRECTORY>(image_base + op_header->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
         while(pimp->dwLookupTableRVA) { /* the table is null-terminated */
             auto name = g2hx<const char>(image_base + pimp->dwRVAModuleName);
-            
-            module_t* mod = load_pe_module(name);
+
+            module* dep = load_pe_module(name);
             
             auto pilt = g2hx<DWORD>(image_base + pimp->dwLookupTableRVA);
             auto thunk = g2hx<DWORD>(image_base + pimp->dwThunkTableRVA);
@@ -308,11 +312,11 @@ static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
                 const char* dbg_name = "<unnamed>";
                 
                 if (ilt & 0x80000000) {
-                    *thunk = find_function_by_ordinal(mod, ilt & (~0x80000000));
+                    *thunk = find_function_by_ordinal(dep, ilt & (~0x80000000));
                 } else {
                     auto hint_entry = g2hx<HINT_NAME_IMPORT_ENTRY>(image_base + ilt);
                     dbg_name = (char*)hint_entry->szName; 
-                    *thunk = find_function_by_name(mod, (char*)hint_entry->szName);
+                    *thunk = find_function_by_name(dep, (char*)hint_entry->szName);
                 }
                 
                 //uw_log("link %40s -> %08lx\n", dbg_name, (unsigned long)*thunk);
@@ -344,69 +348,66 @@ static int load_pe(const uint8_t* pe_file_data, module_t* pmodule)
         assert(r != -1);
     }
     
-    if (dll && pmodule->entry_point != 0) {
-        uw_log("%s has DllMain\n", pmodule->name);
-        library_init_routine_t rout = {pmodule->image_base, pmodule->entry_point};
-        stbds_arrput(library_init_routines, rout);
+    if (dll && mod.entry_point != 0) {
+        uw_log("%s has DllMain\n", mod.name.c_str());
+        //library_init_routine rout = {pmodule->image_base, pmodule->entry_point};
+        library_init_routines.emplace_back(mod);
+        //stbds_arrput(library_init_routines, rout);
         //g_array_append_val(library_init_routines, rout);
     }
     
-    uw_log("loading of %s is done\n", pmodule->name);
+    uw_log("loading of %s is done\n", mod.name.c_str());
     
     return 0;
 }
 
-static char* module_path = NULL;
+static std::string module_path;
 __thread uint32_t* win32_last_error = NULL;
 
-static module_t* load_pe_module(const char* module_name)
+static module* load_pe_module(std::string module_name)
 {
-    assert(module_path != NULL);
-    
+    assert(!module_path.empty());
     
     // leave only basename
     {
-        int i = strlen(module_name);
+        int i = module_name.size();
         while (i > 0 && module_name[i] != '\\' && module_name[i] != '/')
             i--;
         if (module_name[i] == '\\' || module_name[i] == '/')
             i++;
-        module_name += i;
+        module_name.erase(module_name.begin(), module_name.begin() + i);
     }
+
+    // lower case
+    std::transform(module_name.begin(), module_name.end(), module_name.begin(), [](unsigned char c){ return std::tolower(c); });
     
-    uw_log("importing %s...\n", module_name);
+    uw_log("importing %s...\n", module_name.c_str());
     
     {
-        char* lo = uw_ascii_strdown(module_name, -1);
-        module_t* res = stbds_shget(module_table, lo);
-        uw_free(lo);
-        if (res != NULL)
-            return (module_t*)res;
+        auto r = module_table.find(module_name);
+        if (r != module_table.end())
+            return r->second.get();
     }
     
-    module_t* pmodule = uw_new0(module_t, 1);
-    
-    pmodule->name = uw_ascii_strdown(module_name, -1);
+    auto mod = std::unique_ptr<module>(new module(module_name)); //uw_new0(module, 1);
     
     int res = -1;
     bool found_override = false;
     for (size_t i = 0; i < sizeof(ldr_overrides) / sizeof(*ldr_overrides); i++) {
-        if (uw_ascii_strcasecmp(module_name, ldr_overrides[i].name) == 0) {
+        if (uw_ascii_strcasecmp(module_name.c_str(), ldr_overrides[i].name) == 0) {
             uw_log("found override\n");
-            res = load_pe(ldr_overrides[i].data, pmodule);
+            res = load_pe(ldr_overrides[i].data, *mod);
             found_override = true;
         }
     }
 
     if (!found_override) {
-        char *full_filename = uw_strconcat(module_path, "/", module_name, NULL);
+        std::string full_filename = module_path + "/" + module_name;
 
-        uw_log("override not found, opening %s...\n", full_filename);
+        uw_log("override not found, opening %s...\n", full_filename.c_str());
 
-        FILE *f = fcaseopen(full_filename, "rb");
+        FILE *f = fcaseopen(full_filename.c_str(), "rb");
         assert(f != NULL);
-
-        uw_free(full_filename);
 
         int r = fseek(f, 0, SEEK_END);
         assert(r != -1);
@@ -415,64 +416,64 @@ static module_t* load_pe_module(const char* module_name)
         r = fseek(f, 0, SEEK_SET);
         assert(r != -1);
 
-        auto data = uw_new(uint8_t, size);
+        //auto data = uw_new(uint8_t, size);
+        std::vector<uint8_t> data(size);
 
-        int read = fread(data, 1, size, f);
+        int read = fread(data.data(), 1, size, f);
         assert(read == size);
         fclose(f);
 
-        res = load_pe(data, pmodule);
-
-        uw_free(data);
+        res = load_pe(data.data(), *mod);
     }
 
     if (res == 0) {
-        char* lo = uw_ascii_strdown(module_name, -1);
-        stbds_shput(module_table, lo, pmodule);
-        stbds_hmput(hinstance_table, pmodule->image_base, pmodule);
+        auto pmodule = mod.get();
+        module_table[module_name] = std::move(mod);
+        hinstance_table[pmodule->image_base] = pmodule;
         return pmodule;
     } else {
-        uw_free(pmodule);
         return NULL;
     }
 }
 
-/*static void destroy_module(module_t *module)
+/*static void destroy_module(module *module)
 {
     uw_free(module->name);
     uw_free(module);
 }*/
 
-static module_t* exec_module;
+static module* exec_module;
 
 void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_target_process_data_t *process_data)
 {
-    module_path = uw_path_get_dirname(exec_path);
+    char* module_path_c = uw_path_get_dirname(exec_path);
+    module_path = module_path_c;
+    uw_free(module_path_c);
+
     char* exec_name = uw_path_get_basename(exec_path);
     
-    uw_file_set_host_directory(module_path);
+    uw_file_set_host_directory(module_path.c_str());
     
-    uw_log("module_path = %s; exec_name = %s\n", module_path, exec_name);
-    
-    //module_table = g_hash_table_new_full(g_str_hash, g_str_equal, uw_free, destroy_module);
-    //hinstance_table = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+    uw_log("module_path = %s; exec_name = %s\n", module_path.c_str(), exec_name);
     
     // load executable and it's dependencies
     exec_module = load_pe_module(exec_name);
-    // load trampoline code
-    module_t* init_dll = load_pe_module("init.dll");    
+    // load init
+    module* init_dll = load_pe_module("init.dll");
     
     // wa don't want to call init's DllMain (because it isn't a DllMain at all)
-    (void)stbds_arrpop(library_init_routines);
+    library_init_routines.erase(library_init_routines.end() - 1);
     
-    // prepare trampoline entry
+    // put information about DllMain's to be called
     
-    int init_count = stbds_arrlen(library_init_routines);
+    int init_count = library_init_routines.size();
     uint32_t init_list = uw_target_map_memory_dynamic(
-            UW_ALIGN_UP((init_count + 1) * sizeof(library_init_routine_t), uw_host_page_size), UW_PROT_RW);
-    auto h_init_list = g2hx<library_init_routine_t>(init_list);
-    memcpy(h_init_list, library_init_routines, init_count * sizeof(library_init_routine_t));
-    h_init_list[init_count] = (library_init_routine_t){0, 0};
+            UW_ALIGN_UP((init_count + 1) * sizeof(library_init_routine), uw_host_page_size), UW_PROT_RW);
+    auto h_init_list = g2hx<library_init_routine>(init_list);
+    for (int i = 0; i < library_init_routines.size(); i++)
+        h_init_list[i] = library_init_routines[i];
+
+    h_init_list[init_count] = library_init_routine(0, 0);
     
     uw_log("put %d init routines\n", init_count);
     
@@ -480,11 +481,7 @@ void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_t
                                                          UW_PROT_RW);
     strcpy(g2hx<char>(command_line), exec_name);
     
-    //abi_ulong target_last_error = uw_target_map_memory_dynamic(uw_host_page_size, UW_PROT_RW);
-    //win32_last_error = g2h(target_last_error);
-    
     memset(process_data, 0, sizeof(uw_target_process_data_t));
-    //memset(thread_data, 0, sizeof(uw_target_thread_data_t));
     
     process_data->hmodule = exec_module->image_base;
     process_data->idt_base = 0; // to be allocated by uw_cpu_loop
@@ -494,127 +491,102 @@ void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_t
     process_data->process_id = 2; // well..
     
     void* initial_thread_param = uw_create_initial_thread(process_data, exec_module->entry_point, 0, exec_module->stack_size);
-    
-    /*
-    thread_data->entry_point = exec_module->entry_point;
-    thread_data->entry_param = 0;
-    thread_data->stack_top   = 0; // to be allocated by cpu_loop
-    thread_data->stack_size  = exec_module->stack_size;
-    thread_data->thread_id   = UW_INITIAL_THREAD_ID;
-    thread_data->tls_base    = 0; // to be allocated by cpu_loop
-    thread_data->gdt_base    = 0; // to be allocated by cpu_loop
-    thread_data->teb_base    = 0; // to be allocated by uw_cpu_loop
-    thread_data->process     = process_data;
-    */
-    
-    /*regs->eip = init_dll->entry_point;
-    regs->esp = stack + exec_module->stack_size;
-    regs->eax = init_list;
-    regs->ebx = command_line;
-    regs->ecx = target_last_error;
-    regs->edx = exec_module->entry_point;
-    regs->thread_id = 2; // initial thread id
-    regs->hmodule = exec_module->image_base;*/
-    
-    //uw_free(module_path);
+
     uw_free(exec_name);
     
     return initial_thread_param;
 }
 
-static uint32_t return_string_to_buffer(char* buffer, int buffer_size, const char* str) {
+static uint32_t return_string_to_buffer(char* buffer, int buffer_size, const std::string& str) {
     if (buffer_size == 0)
         return 0;
     buffer[0] = '\0';
-    int l = strlen(str);
-    strncat(buffer, str, buffer_size - 1);
+    int l = str.length();
+    strncat(buffer, str.c_str(), buffer_size - 1);
     if (l > buffer_size)
         return buffer_size;
     return l;
 } 
 
 uint32_t ldr_get_module_filename(uint32_t module_handle, char* buffer, int buffer_size) {
-    module_t *res = stbds_hmget(hinstance_table, module_handle);
-    if (res == NULL) {
+    auto res = hinstance_table.find(module_handle);
+    //module *res = stbds_hmget(hinstance_table, module_handle);
+    if (res == hinstance_table.end()) {
         win32_err = ERROR_FILE_NOT_FOUND;
         return 0;
     }
-    const char* hmod_name = res->name;
-    char* p = uw_strconcat(UW_GUEST_PROG_PATH, "\\", hmod_name, NULL);
+    std::string& hmod_name = res->second->name;
+    std::string p = std::string(UW_GUEST_PROG_PATH) + "\\" + hmod_name;
     uint32_t r = return_string_to_buffer(buffer, buffer_size, p);
-    uw_free(p);
     win32_err = ERROR_SUCCESS;
     return r;
 }
 uint32_t ldr_get_module_handle(const char* module_name) {
     if (module_name == NULL)
         return exec_module->image_base;
-    
-    char* lo = uw_ascii_strdown(module_name, -1);
-    module_t* res = stbds_shget(module_table, lo);
-    if (res == NULL) {
+
+    std::string lo(module_name);
+
+    std::transform(lo.begin(), lo.end(), lo.begin(), [](unsigned char c){ return std::tolower(c); });
+
+    auto res = module_table.find(lo);
+    if (res == module_table.end()) {
         // try adding .dll
-        char* dll = uw_strconcat(lo, ".dll", NULL);
-        uw_free(lo);
-        res = stbds_shget(module_table, dll);
-        uw_free(dll);
-        if (res == NULL) {
+        lo += ".dll";
+        res = module_table.find(lo);
+        if (res == module_table.end()) {
             win32_err = ERROR_FILE_NOT_FOUND;
-            
+
             uw_log("ldr_get_module_handle(%s) -> 0\n", module_name);
             return 0;
         }
-    } else {
-        uw_free(lo);
     }
-    uw_log("ldr_get_module_handle(%s) -> %08x\n", module_name, res->image_base);
+    uw_log("ldr_get_module_handle(%s) -> %08x\n", module_name, res->second->image_base);
     win32_err = ERROR_SUCCESS;
-    return res->image_base;
+    return res->second->image_base;
 }
 
 uint32_t ldr_get_proc_address(uint32_t module_handle, const char* proc_name) {
-    module_t *res = stbds_hmget(hinstance_table, module_handle);
-    if (res == NULL) {
-        win32_err = ERROR_FILE_NOT_FOUND;
-        return 0;
-    }
-    
-    return find_function_by_name(res, proc_name);
+    auto res = hinstance_table.find(module_handle);
+    assert(res != hinstance_table.end());
+
+    return find_function_by_name(res->second, proc_name);
 }
 
 char* ldr_beautify_address(uint32_t addr) {
-    const char* closest_name = "<unknown>";
+    std::string closest_name = "<unknown>";
     uint32_t closest_base = 0;
-    
-    for (int i = 0; i < stbds_shlen(module_table); i++)
+
+    for (auto const& x : module_table)
     {
-        module_t* module = module_table[i].value;
-        if (addr > module->image_base) {
-            if (addr - module->image_base < addr - closest_base) {
-                closest_name = module->name;
-                closest_base = module->image_base;
+        module& module = *x.second; //module_table[i].value;
+        if (addr > module.image_base) {
+            if (addr - module.image_base < addr - closest_base) {
+                closest_name = module.name;
+                closest_base = module.image_base;
+                // TODO: check image size
             }
         }
     }
     
-    return uw_strdup_printf("%20s + 0x%08x", closest_name, addr - closest_base);
+    return uw_strdup_printf("%20s + 0x%08x", closest_name.c_str(), addr - closest_base);
 }
 
 void ldr_write_gdb_setup_script(int port, const char* debug_path, FILE* f) {
     fprintf(f, "target remote localhost:%d\n", port);
-    
-    for (int i = 0; i < stbds_shlen(module_table); i++)
+
+    for (auto const& x : module_table)
     {
-        module_t* module = module_table[i].value;
-        const char* name = module_table[i].key;
+        module& module = *x.second;
+        const std::string& name = x.first;
         
-        char* raw_name = uw_strdup(name);
+        char* raw_name = uw_strdup(name.c_str());
         *rindex(raw_name, '.') = '\0';
         char* path = uw_strdup_printf("%s/%s.elf", debug_path, raw_name);
         uw_free(raw_name);
         
         if (uw_test_file(path, UW_TEST_FILE_EXISTS)) {
-            fprintf(f, "add-symbol-file %s 0x%08x\n", path, (unsigned)module->code_base);
+            fprintf(f, "add-symbol-file %s 0x%08x\n", path, (unsigned)module.code_base);
         }
         
         uw_free(path);
@@ -623,12 +595,12 @@ void ldr_write_gdb_setup_script(int port, const char* debug_path, FILE* f) {
 }
 
 void ldr_print_memory_map(void) {
-    for (int i = 0; i < stbds_shlen(module_table); i++)
+    for (auto const& x : module_table)
     {
-        module_t* module = module_table[i].value;
-        const char* name = module_table[i].key;
+        module& module = *x.second;
+        std::string const& name = x.first;
         
-        uw_log("%20s: 0x%08x\n", name, (unsigned)module->image_base);
+        uw_log("%20s: 0x%08x\n", name.c_str(), (unsigned)module.image_base);
     }
 }
 
@@ -637,7 +609,7 @@ uint32_t ldr_load_library(const char* module_name) {
 }
 
 uint32_t ldr_get_entry_point(uint32_t module_handle) {
-    module_t* res = stbds_hmget(hinstance_table, module_handle);
-    assert(res);
-    return res->entry_point;
+    auto res = hinstance_table.find(module_handle);
+    assert(res != hinstance_table.end());
+    return res->second->entry_point;
 }

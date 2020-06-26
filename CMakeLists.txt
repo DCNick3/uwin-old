@@ -66,7 +66,7 @@ set(UWIN_SOURCES
         src/uwin/syscall.c
         src/uwin/cfg.c
         src/uwin/file.cpp
-        src/uwin/win32_mq.c
+        src/uwin/win32_mq.cpp
         src/uwin/sdl_ui_gmq.cpp
         src/fcaseopen.c
         src/main.c
@@ -96,8 +96,9 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DUW_DEBUG)
 endif (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
-#set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-#set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
 
 include_directories(${SDL2_INCLUDE_DIRS})
 

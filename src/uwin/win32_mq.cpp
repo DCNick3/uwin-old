@@ -1,11 +1,16 @@
 
-#include "uwin/uwin.h"
-#include "uwin/util/mem.h"
+extern "C" {
+    #include "uwin/uwin.h"
+    #include "uwin/util/mem.h"
+}
 
-#include "stb_ds.h"
+//#include "stb_ds.h"
 
 #include <assert.h>
 #include <semaphore.h>
+
+#include <vector>
+#include <mutex>
 
 typedef struct uw_win32_msg_internal uw_win32_msg_internal_t;
 struct uw_win32_msg_internal {
@@ -17,10 +22,6 @@ struct uw_win32_msg_internal {
     uw_win32_msg_internal_t *next;
 };
 
-#define RES_NOREPLY   0
-#define RES_WANTREPLY 1
-#define RES_REPLIED   2
-
 
 struct uw_win32_mq {
     uw_win32_msg_internal_t* first;
@@ -30,13 +31,12 @@ struct uw_win32_mq {
     //uw_win32_msg_internal_t* currently_handled_message;
 };
 
-static uint32_t* global_message_subscription_list;
-static pthread_mutex_t global_message_subscription_list_mut = PTHREAD_MUTEX_INITIALIZER;
+static std::vector<uint32_t> global_message_subscription_list;
+static std::mutex global_message_subscription_list_mut;
 
 #define thread_mq (uw_current_thread_data->win32_mq)
 
 void uw_win32_mq_initialize(void) {
-    global_message_subscription_list = NULL;
 }
 
 void uw_win32_mq_finalize(void) {
@@ -45,9 +45,9 @@ void uw_win32_mq_finalize(void) {
 void uw_win32_mq_subscribe_global(void) {
     uw_target_thread_data_t* thread_data = uw_current_thread_data;
     uint32_t newref = uw_ht_newref(thread_data->self_handle);
-    pthread_mutex_lock(&global_message_subscription_list_mut);
-    stbds_arrput(global_message_subscription_list, newref);
-    pthread_mutex_unlock(&global_message_subscription_list_mut);
+
+    std::unique_lock<std::mutex> lk(global_message_subscription_list_mut);
+    global_message_subscription_list.push_back(newref);
 }
 
 void uw_win32_mq_publish_global_message(uw_gmq_msg_t* message) {
@@ -85,35 +85,30 @@ void uw_win32_mq_publish_global_message(uw_gmq_msg_t* message) {
             wparam = (uint32_t)(uintptr_t)message->param1;
             lparam = (uint32_t)(uintptr_t)message->param2;
             break;
-        case UW_GM_THREAD_DIED:
-            pthread_mutex_lock(&global_message_subscription_list_mut);
-            
-            for (int i = 0; i < stbds_arrlen(global_message_subscription_list); i++) {
-                uw_thread_t* th = uw_ht_get_thread(global_message_subscription_list[i]);
-                if (th == message->param1) {
-                    stbds_arrdel(global_message_subscription_list, i);
-                    uw_ht_delref(global_message_subscription_list[i], NULL, NULL);
-                    i--;
+        case UW_GM_THREAD_DIED: {
+                std::unique_lock<std::mutex> lk(global_message_subscription_list_mut);
+
+                for (int i = 0; i < global_message_subscription_list.size(); i++) {
+                    uw_thread_t *th = uw_ht_get_thread(global_message_subscription_list[i]);
+                    if (th == message->param1) {
+                        uw_ht_delref(global_message_subscription_list[i], NULL, NULL);
+                        global_message_subscription_list.erase(global_message_subscription_list.begin() + i);
+                        i--;
+                    }
                 }
+                return;
             }
-            
-            pthread_mutex_unlock(&global_message_subscription_list_mut);
-            return;
         default:
             uw_log("ignoring unsupported global message: %x\n", message->message);
             return;
     }
-    
-    pthread_mutex_lock(&global_message_subscription_list_mut);
 
+    std::unique_lock<std::mutex> lk(global_message_subscription_list_mut);
 
-
-    for (int i = 0; i < stbds_arrlen(global_message_subscription_list); i++) {
-        uw_thread_t* th = uw_ht_get_thread(global_message_subscription_list[i]);
+    for (auto const& x : global_message_subscription_list) {
+        uw_thread_t* th = uw_ht_get_thread(x);
         uw_win32_mq_post(th, 0, win32_message, wparam, lparam);
     }
-    
-    pthread_mutex_unlock(&global_message_subscription_list_mut);
 }
 
 uw_win32_mq_t* uw_win32_mq_create(void) {
@@ -182,7 +177,8 @@ int32_t uw_win32_mq_try_pop(uw_win32_mq_msg_t* out_message) {
     }
     pthread_mutex_unlock(&mq->queue_mutex);
 
-    memcpy(out_message, &res->msg, sizeof(uw_win32_mq_msg_t));
+    *out_message = res->msg;
+
     uw_free(res);
     return 0;
 }
@@ -205,7 +201,7 @@ void uw_win32_mq_pop(uw_win32_mq_msg_t* out_message) {
     }
     pthread_mutex_unlock(&mq->queue_mutex);
 
-    memcpy(out_message, &res->msg, sizeof(uw_win32_mq_msg_t));
+    *out_message = res->msg;
     uw_free(res);
 }
 
