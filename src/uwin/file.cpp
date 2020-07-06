@@ -17,10 +17,9 @@
  *  along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-extern "C" {
 #include "uwin/uwin.h"
-#include "uwin/util/str.h"
 #include "uwin/util/mem.h"
+#include "uwin/util/str.h"
 
 #include "uwin/uwinerr.h"
 #include "fcaseopen.h"
@@ -38,7 +37,6 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-}
 
 #include <string>
 

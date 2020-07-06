@@ -3,5 +3,6 @@ bin/
 debug/
 **/*.DLL
 **/*.elf
+**/*.a
 dlls.a
 **/.depend

@@ -1,3 +1,6 @@
 [submodule "ext-deps/zydis"]
 	path = ext-deps/zydis
 	url = https://github.com/zyantific/zydis.git
+[submodule "ext-deps/vixl/vixl"]
+	path = ext-deps/vixl/vixl
+	url = https://github.com/DCNick3/vixl.git

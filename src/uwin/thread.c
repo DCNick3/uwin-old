@@ -97,7 +97,7 @@ static void *host_thread_entry(void* param) {
         gdb_handlesig(thread->halfix, 0);
     }*/
     
-    uw_log("thread state initialized, entering halfix loop\n");
+    uw_log("thread state initialized, entering cpu loop\n");
 
     uw_cpu_loop(thread->cpu_context);
     

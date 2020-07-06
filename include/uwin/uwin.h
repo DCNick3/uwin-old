@@ -1,6 +1,9 @@
 #ifndef QEMU_H
 #define QEMU_H
 
+
+#include "mem.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,7 +16,6 @@ extern "C" {
 #include "common_def.h"
 #include "uwindows.h"
 #include "uwin/util/log.h"
-#include "mem.h"
 
 #include <pthread.h>
 
@@ -132,10 +134,10 @@ extern uint32_t uw_host_page_size;
 int uw_jitmem_alloc(void** rw_addr, void** exec_addr, size_t size);
 void uw_jitmem_free(void* rw_addr, void* exec_addr, size_t size);
 
-int32_t do_syscall(int num, uint32_t arg1,
-                    uint32_t arg2, uint32_t arg3, uint32_t arg4,
-                    uint32_t arg5, uint32_t arg6, uint32_t arg7,
-                    uint32_t arg8);
+int32_t uw_cpu_do_syscall(int num, uint32_t arg1,
+                          uint32_t arg2, uint32_t arg3, uint32_t arg4,
+                          uint32_t arg5, uint32_t arg6, uint32_t arg7,
+                          uint32_t arg8);
 
 // uw_cpu_loop stuff
 void* uw_cpu_alloc_context();

@@ -6,29 +6,56 @@
 #define UWIN_BASIC_BLOCK_H
 
 #include <cstdint>
+#include <algorithm>
+#include <atomic>
 
 #include "cpu_context.h"
 
-#include "uwin-jit/sljit.h"
+#include "uwin-jit/executable_memory_allocator.h"
+
+#include "uwin/util/log.h"
 
 
 namespace uwin {
     namespace jit {
-        typedef void (SLJIT_FUNC *basic_block_func)(cpu_context* ctx);
+        typedef cpu_context* (*basic_block_func)(cpu_context* ctx);
 
         class basic_block {
             uint32_t guest_address;
             uint32_t size;
 
-            sljit_code<basic_block_func> code;
+            xmem_piece xmem;
 
+#ifdef UW_USE_JITFIX
+            void halfix_enter(cpu_context* ctx);
+            void halfix_leave(cpu_context* ctx);
+#endif
         public:
-            inline basic_block(uint32_t guest_address, uint32_t size, sljit_code<basic_block_func> code)
-                : guest_address(guest_address), size(size), code(std::move(code))
+            inline basic_block(uint32_t guest_address, uint32_t size, xmem_piece xmem)
+                : guest_address(guest_address), size(size), xmem(std::move(xmem))
             {}
 
-            inline void SLJIT_FUNC execute(cpu_context* ctx) {
-                code.get_pointer()(ctx);
+            inline void execute(cpu_context* ctx) {
+#ifdef UW_JIT_TRACE
+                uw_log("entering basic block %08lx | %p\n", (unsigned long)guest_address, xmem.rx_ptr());
+#endif
+
+#ifdef UW_USE_JITFIX
+                halfix_enter(ctx);
+#endif
+
+                xmem.prepare_execute();
+                auto func = reinterpret_cast<basic_block_func>(xmem.rx_ptr());
+
+                if (guest_address == 0x055BD6B) {
+                    uw_log("bonk\n");
+                }
+
+                func(ctx);
+
+#ifdef UW_USE_JITFIX
+                halfix_leave(ctx);
+#endif
             }
         };
     }

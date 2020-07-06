@@ -1,10 +1,6 @@
 
-extern "C" {
-    #include "uwin/uwin.h"
-    #include "uwin/util/mem.h"
-}
-
-//#include "stb_ds.h"
+#include "uwin/uwin.h"
+#include "uwin/util/mem.h"
 
 #include <assert.h>
 #include <semaphore.h>

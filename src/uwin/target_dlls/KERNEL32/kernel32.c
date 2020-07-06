@@ -98,13 +98,15 @@ HANDLE WINAPI HeapCreate(DWORD flOptions, SIZE_T dwInitialSize, SIZE_T dwMaximum
 }
 
 BOOL WINAPI HeapDestroy(HANDLE hHeap) {
+    kprintf("HeapDestroy(%p)", hHeap);
     rpmalloc_heap_t* heap = (rpmalloc_heap_t*)hHeap;
     rpmalloc_heap_free_all(heap);
     rpmalloc_heap_release(heap);
 }
 
 
-LPVOID WINAPI HeapAlloc(HANDLE hHeap, DWORD  dwFlags, SIZE_T dwBytes) {
+LPVOID WINAPI HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
+    kprintf("HeapAlloc(%p, %x, %x)", hHeap, dwFlags, dwBytes);
     rpmalloc_heap_t* heap = (rpmalloc_heap_t*)hHeap;
     if (dwFlags & HEAP_NO_SERIALIZE)
         kpanicf("HeapAlloc(%p, %x, %x)", hHeap, dwFlags, dwBytes);
@@ -123,6 +125,7 @@ LPVOID WINAPI HeapAlloc(HANDLE hHeap, DWORD  dwFlags, SIZE_T dwBytes) {
 }
 
 BOOL WINAPI HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
+    kprintf("HeapFree(%p, %x, %p)", hHeap, dwFlags, lpMem);
     rpmalloc_heap_t* heap = (rpmalloc_heap_t*)hHeap;
     rpmalloc_heap_free(heap, lpMem);
     return TRUE;
@@ -176,7 +179,7 @@ BOOL WINAPI VirtualFree(LPVOID lpAddress, SIZE_T dwSize, DWORD dwFreeType) {
 }
 
 LPSTR WINAPI GetCommandLineA() {
-    //kpanicf("GetCommandLineA()");
+    kprintf("GetCommandLineA()");
     return (LPSTR)get_teb_value(TEB_CMDLINE);
 }
 
@@ -200,11 +203,13 @@ BOOL WINAPI FreeEnvironmentStringsW(LPWCH penv) {
 }
 
 VOID WINAPI GetStartupInfoA(LPSTARTUPINFOA lpStartupInfo) {
+    kprintf("GetStartupInfoA(%p)");
     memset(lpStartupInfo, 0, sizeof(STARTUPINFOA));
     lpStartupInfo->cb = sizeof(STARTUPINFOA);
 }
 
 HANDLE WINAPI GetStdHandle(DWORD nStdHandle) {
+    kprintf("GetStdHandle(%x)", nStdHandle);
     switch (nStdHandle) {
         case  STD_INPUT_HANDLE:     return dummy_stdin_handle;
         case STD_OUTPUT_HANDLE:     return dummy_stdout_handle;
@@ -214,6 +219,7 @@ HANDLE WINAPI GetStdHandle(DWORD nStdHandle) {
 }
 
 DWORD WINAPI GetFileType(HANDLE hFile) {
+    kprintf ("GetFileType(%p)", hFile);
     if (hFile == dummy_stdin_handle || hFile == dummy_stdout_handle || hFile == dummy_stderr_handle)
         return FILE_TYPE_CHAR;
     uint32_t type = kht_gettype((khandle_t)hFile);
@@ -229,10 +235,12 @@ UINT WINAPI SetHandleCount(UINT uNumber) {
 #define CP_US 437
 
 UINT WINAPI GetACP() {
+    kprintf("GetACP()");
     return CP_US;
 }
 
 BOOL WINAPI GetCPInfo(UINT CodePage, LPCPINFO lpCPInfo) {
+    kprintf("GetCPInfo(%x, %p)", CodePage, lpCPInfo);
     if (CodePage != CP_US)
         kpanicf("GetCPInfo(%d, %p)", CodePage, lpCPInfo);
     lpCPInfo->MaxCharSize = 1;
@@ -247,6 +255,7 @@ BOOL WINAPI GetCPInfo(UINT CodePage, LPCPINFO lpCPInfo) {
 static char windows_directory[] = "C:\\Windows";
 
 UINT WINAPI GetWindowsDirectoryA(LPSTR lpBuffer, UINT uSize) {
+    kprintf("GetWindowsDirectoryA(%p, %x)", lpBuffer, uSize);
     if (uSize < sizeof(windows_directory))
         kpanicf("GetWindowsDirectoryA(%p, %d)", lpBuffer, uSize);
     memcpy(lpBuffer, windows_directory, sizeof(windows_directory));
@@ -256,6 +265,7 @@ UINT WINAPI GetWindowsDirectoryA(LPSTR lpBuffer, UINT uSize) {
 static char system_directory[] = "C:\\Windows\\System32";
 
 UINT WINAPI GetSystemDirectoryA(LPSTR lpBuffer, UINT uSize) {
+    kprintf("GetSystemDirectoryA(%p, %x)", lpBuffer, uSize);
     if (uSize < sizeof(system_directory))
         kpanicf("GetSystemDirectoryA(%p, %d)", lpBuffer, uSize);
     memcpy(lpBuffer, system_directory, sizeof(system_directory));
@@ -265,6 +275,7 @@ UINT WINAPI GetSystemDirectoryA(LPSTR lpBuffer, UINT uSize) {
 static char service_pack_name[] = "Service Pack 2";
 
 BOOL WINAPI GetVersionExA(LPOSVERSIONINFOA lpVersionInformation) {
+    kprintf("GetVersionExA(%p)", lpVersionInformation);
     if (lpVersionInformation->dwOSVersionInfoSize != sizeof(OSVERSIONINFOA))
         kpanicf("GetVersionExA(%p); size = %d", lpVersionInformation, lpVersionInformation->dwOSVersionInfoSize);
     lpVersionInformation->dwMajorVersion = 5;
@@ -276,17 +287,19 @@ BOOL WINAPI GetVersionExA(LPOSVERSIONINFOA lpVersionInformation) {
 }
 
 BOOL WINAPI QueryPerformanceFrequency(LARGE_INTEGER *lpFrequency) {
+    kprintf("QueryPerformanceFrequency(%p)", lpFrequency);
     lpFrequency->QuadPart = 10000000;
     return TRUE;
 }
 
 BOOL WINAPI QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount) {
     lpPerformanceCount->QuadPart = kget_monotonic_time() * 10;
-    //kprintf("QueryPerformanceCounter -> %lu", (unsigned long)lpPerformanceCount->QuadPart);
+    kprintf("QueryPerformanceCounter -> %lu", (unsigned long)lpPerformanceCount->QuadPart);
     return TRUE;
 }
 
 BOOL WINAPI DisableThreadLibraryCalls(HMODULE lpLibmodule) {
+    kprintf("DisableThreadLibraryCalls(%p)", lpLibmodule);
     return TRUE;
 }
 
@@ -321,10 +334,12 @@ VOID WINAPI InitializeCriticalSection(LPCRITICAL_SECTION lpCriticalSection) {
 }
 
 VOID WINAPI DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection) {
+    kprintf("DeleteCriticalSection(%p)", lpCriticalSection);
     kht_delref((khandle_t)lpCriticalSection->LockSemaphore, NULL, NULL);
 }
 
 VOID WINAPI EnterCriticalSection(LPCRITICAL_SECTION CriticalSection) {
+    //kprintf("EnterCriticalSection(%p)", CriticalSection);
     HANDLE Thread = GetCurrentThread();
  
     /* Try to lock it */
@@ -363,6 +378,7 @@ VOID WINAPI EnterCriticalSection(LPCRITICAL_SECTION CriticalSection) {
 }
 
 VOID WINAPI LeaveCriticalSection(LPCRITICAL_SECTION CriticalSection) {
+    // kprintf("LeaveCriticalSection(%p)", CriticalSection);
 #if 0
     HANDLE Thread = GetCurrentThread();
 
@@ -404,34 +420,29 @@ VOID WINAPI LeaveCriticalSection(LPCRITICAL_SECTION CriticalSection) {
 }
 
 DWORD WINAPI TlsAlloc() {
+    kprintf("TlsAlloc()");
     return __atomic_fetch_add(&next_tls_index, 1, __ATOMIC_SEQ_CST);
 }
 
 LPVOID WINAPI TlsGetValue(DWORD dwIndex) {
+    //kprintf("TlsGetValue(%x)", dwIndex);
     return get_tls_value(dwIndex * 4);
 }
 
 BOOL WINAPI TlsSetValue(DWORD dwIndex, LPVOID value) {
+    kprintf("TlsSetValue(%x, %p)", dwIndex, value);
     set_tls_value(dwIndex * 4, value);
     return TRUE;
 }
 
 DWORD WINAPI GetCurrentThreadId() {
+    kprintf("GetCurrentThreadId()");
     return (DWORD)get_teb_value(TEB_TID);
 }
 
 LPTOP_LEVEL_EXCEPTION_FILTER WINAPI SetUnhandledExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER lpTopLevelExceptionFilter) {
-    //kpanicf("SetUnhandledExceptionFilter(%p)", lpTopLevelExceptionFilter);
+    kprintf("SetUnhandledExceptionFilter(%p)", lpTopLevelExceptionFilter);
     return __atomic_exchange_n(&top_level_exception_filter, lpTopLevelExceptionFilter, __ATOMIC_SEQ_CST);
-}
-
-static int win32_setjmp(PCONTEXT* context) {
-    // exceptional magic
-    
-}
-
-static void win32_longjmp(PCONTEXT* context) {
-    
 }
 
 // SEH. Uses stuff in TEB
@@ -450,7 +461,12 @@ typedef EXCEPTION_DISPOSITION WINAPI (*currect_exc_handler_t)(struct _EXCEPTION_
 
 VOID WINAPI RaiseException(DWORD code, DWORD flags, DWORD nbargs, const ULONG_PTR *args) {
     kprintf("RaiseException(%x, %x, %d, %p)", code, flags, nbargs, args);
-    
+
+    kprintf("ret[0] = %p", __builtin_return_address(0));
+    kprintf("ret[1] = %p", __builtin_return_address(1));
+    kprintf("ret[2] = %p", __builtin_return_address(2));
+    kprintf("ret[3] = %p", __builtin_return_address(3));
+
     // build an EXCEPTION_RECORD
     EXCEPTION_RECORD record;
     record.ExceptionCode    = code;
@@ -546,9 +562,10 @@ PVOID WINAPI RtlUnwind_real(PVOID pEndFrame, PVOID targetIp, PEXCEPTION_RECORD p
     return retval; // HaCk
 }
 
-NTSYSAPI VOID WINAPI __attribute__((naked)) RtlUnwind(PVOID pEndFrame, PVOID targetIp, PEXCEPTION_RECORD pRecord, PVOID retval) {
-    asm("jmp _RtlUnwind_real");
-}
+//NTSYSAPI VOID WINAPI __attribute__((naked)) RtlUnwind(PVOID pEndFrame, PVOID targetIp, PEXCEPTION_RECORD pRecord, PVOID retval);
+asm(    ".global _RtlUnwind\n"
+        "_RtlUnwind:\n"
+        "jmp _RtlUnwind_real\n");
 
 // hacks around mingw
 #undef InterlockedExchange
@@ -572,6 +589,7 @@ typedef struct {
 } win32_mutex_t;
 
 HANDLE WINAPI CreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) {
+    kprintf("CreateMutexA(%p, %d, %p)", lpMutexAttributes, bInitialOwner, lpName);
     if (lpMutexAttributes != NULL || lpName != NULL || bInitialOwner)
         goto bad;
     
@@ -586,6 +604,7 @@ bad:
 }
 
 BOOL WINAPI ReleaseMutex(HANDLE hMutex) {
+    kprintf("ReleaseMutex(%p)", hMutex);
     win32_mutex_t* this = (win32_mutex_t*)kht_dummy_get((khandle_t)hMutex, KHT_DUMMY_MUTEX);
     this->owner = 0;
     ksem_post(this->sem);

@@ -17,8 +17,9 @@
  *  along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "uwin/uwin.h"
+
 extern "C" {
-    #include "uwin/uwin.h"
     #include "uwin/uwindows.h"
     #include "uwin/uwinerr.h"
     #include "uwin/util/align.h"
@@ -44,10 +45,6 @@ struct ldr_override
     const uint8_t* data;
 };
 
-template<typename T>
-static inline T* g2hx(uint32_t addr) {
-    return static_cast<T*>(g2h(addr));
-}
 
 #define LDR_OVERRIDES \
     X(INIT) \

@@ -6,13 +6,27 @@
 #include "uwin-jit/basic_block_compiler.h"
 
 #include <mutex>
+#include <unordered_map>
 
 namespace uwin {
     namespace jit {
 
-        // no cache yet =)
-        std::shared_ptr<basic_block> get_basic_block(cpu_static_context& ctx, uint32_t eip) {
-            return std::make_shared<basic_block>(std::move(basic_block_compiler::compile(ctx, eip)));
+        static std::unordered_map<uint32_t, std::shared_ptr<basic_block>> cache;
+
+        static std::shared_ptr<basic_block> compile_block(cpu_static_context& ctx, uint32_t eip) {
+            return std::make_shared<basic_block>(std::move(native_basic_block_compiler::compile(ctx, eip)));
+        }
+
+        // the most dumb cache ever
+        std::shared_ptr<basic_block> get_native_basic_block(cpu_static_context& ctx, uint32_t eip) {
+            //return compile_block(ctx, eip);
+
+            auto it = cache.find(eip);
+            if (it == cache.end()) {
+                return cache[eip] = compile_block(ctx, eip);
+            } else {
+                return it->second;
+            }
         }
 
     }

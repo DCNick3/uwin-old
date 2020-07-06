@@ -916,11 +916,11 @@ int fpu_reg_op(struct decoded_instruction* i, uint32_t flags)
             uint64_t quo;
             temp2 = floatx80_ieee754_remainder(st0, st1, &temp, &quo, &thread_fpu.status);
             if (!fpu_check_exceptions()) {
-                if (!(temp2 < 0)) {
+                if (temp2 >= 0) {
                     SET_C0(0);
                     SET_C2(0);
                     SET_C3(0);
-                    if (flags) {
+                    if (temp2 > 0) {
                         SET_C2(1);
                     } else {
                         // 1 2 4 - 1 3 0

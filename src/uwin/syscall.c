@@ -23,17 +23,15 @@
 #include "uwin/common_def.h"
 #include "uwin/util/mem.h"
 
-#include "halfix/cpu/cpu.h"
-
 #include <stdio.h>
 
 #define g2h_n(addr) ( addr == 0 ? NULL : g2h(addr) )
 
 // what was qemu thunk code about, again?)
-int32_t do_syscall(int num, uint32_t arg1,
-                   uint32_t arg2, uint32_t arg3, uint32_t arg4,
-                   uint32_t arg5, uint32_t arg6, uint32_t arg7,
-                   uint32_t arg8)
+int32_t uw_cpu_do_syscall(int num, uint32_t arg1,
+                          uint32_t arg2, uint32_t arg3, uint32_t arg4,
+                          uint32_t arg5, uint32_t arg6, uint32_t arg7,
+                          uint32_t arg8)
 {
     //qemu_log("%02d: syscall %x, %x\n", uw_current_thread_id, (unsigned)num, (unsigned)arg1);
     switch (num) {

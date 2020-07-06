@@ -55,7 +55,7 @@ const rpmalloc_config_t my_rpmalloc_config = {
 
 void __stdcall init(void* entry_point, void* entry_param)
 {
-    kprintf("==================\nstart init\n==================");
+    kprint("==================\nstart init\n==================");
     
     kprintf("entry_point = %p, entry_param = %p", entry_point, entry_param);
     
@@ -65,7 +65,12 @@ void __stdcall init(void* entry_point, void* entry_param)
     
     kprintf("pid = %x, tid = %x", pid, tid);
     kprintf("initializing FPU");
-    __asm__("finit");
+    __asm__("fninit");
+    
+    float goo = 123.1f;
+    float boo = goo / 12.f * 72.f * tid + 1337.f;
+    
+    kprintf("%f", boo);
 
     if (tid == KTHREAD_INIT_ID) {
         

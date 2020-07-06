@@ -1,7 +1,6 @@
 
 #include "uwin/uwin.h"
 
-#include "uwin-jit/sljit.h"
 #include "uwin-jit/cpu_context.h"
 #include "uwin-jit/basic_block_cache.h"
 
@@ -11,53 +10,10 @@
 
 using namespace uwin::jit;
 
-typedef sljit::sljit_uw (SLJIT_FUNC *block_fun_t)(sljit::sljit_uw);
 
 void* uw_cpu_alloc_context()
 {
     return new cpu_context();
-
-    sljit_compiler compiler;
-
-    uint32_t* stuff = new uint32_t[1];
-
-    compiler.emit_enter(0, SLJIT_RET(UW) | SLJIT_ARG1(UW), 6, 6, 0, 0, 0);
-    compiler.emit_op2(SLJIT_ADD32,
-                      sljit_ref::reg(sljit_reg::R0),
-                      sljit_ref::reg(sljit_reg::S0),
-                      sljit_ref::imm(1337));
-    compiler.emit_op2(SLJIT_ADD32,
-                      sljit_ref::reg(sljit_reg::R0),
-                      sljit_ref::reg(sljit_reg::R0),
-                      sljit_ref::reg(sljit_reg::S1));
-    compiler.emit_op1(SLJIT_MOV32,
-                    sljit_ref::mem0(stuff),
-                    sljit_ref::reg(sljit_reg::R0));
-    compiler.emit_op2(SLJIT_SUB32 | SLJIT_SET_Z,
-            sljit_ref::unused(),
-            sljit_ref::reg(sljit_reg::R0),
-            sljit_ref::imm(1460));
-    compiler.emit_op1(SLJIT_MOV32,
-            sljit_ref::reg(sljit_reg::R0),
-            sljit_ref::imm(0));
-    compiler.emit_cmov(sljit_flagtype::EQUAL,
-            sljit_reg::R0,
-            sljit_ref::imm(1));
-
-    compiler.emit_return(SLJIT_MOV,
-            sljit_ref::reg(sljit_reg::R0));
-
-    auto code = compiler.generate_code<block_fun_t>();
-
-    code.dump();
-
-    uint32_t res = code.get_pointer()(123);
-
-    std::cout << "Howdy?" << std::endl << "res = " << res << std::endl << "*stuff = " << *stuff << std::endl;
-
-    delete[] stuff;
-
-    assert("not implemented" == 0);
 }
 void uw_cpu_free_context(void* ctx)
 {
@@ -69,10 +25,6 @@ void uw_cpu_panic(const char* message)
     assert("not implemented" == 0);
 }
 
-template<typename T>
-static inline T* g2hx(uint32_t addr) {
-    return static_cast<T*>(g2h(addr));
-}
 
 static uint32_t setup_teb(uw_target_thread_data_t *params) {
     params->teb_base = uw_target_map_memory_dynamic(uw_host_page_size, UW_PROT_RW);
@@ -111,10 +63,14 @@ void uw_cpu_setup_thread(void* ctx, uw_target_thread_data_t *params)
 
     context->static_context.guest_base = reinterpret_cast<uintptr_t>(guest_base);
 
-    context->CS() = reinterpret_cast<uintptr_t>(guest_base);
+    /*context->CS() = reinterpret_cast<uintptr_t>(guest_base);
     context->DS() = reinterpret_cast<uintptr_t>(guest_base);
     context->SS() = reinterpret_cast<uintptr_t>(guest_base);
     context->ES() = reinterpret_cast<uintptr_t>(guest_base);
+    */
+
+    // get one page more to be consistent with halfix memory map
+    params->gdt_base = uw_target_map_memory_dynamic(uw_host_page_size, UW_PROT_RW);
 
     uint32_t teb_base = setup_teb(params);
     context->FS() = reinterpret_cast<uintptr_t>(g2h(teb_base));
@@ -128,16 +84,32 @@ void uw_cpu_setup_thread(void* ctx, uw_target_thread_data_t *params)
     context->EIP() = params->process->init_entry;
 }
 
-void uw_cpu_loop(void* ctx)
+// Spinlock based on this flag ensures that only one compiled basic block is executed concurrently
+// This is required for satisfying x86 atomicity requirements on aarch64
+// As homm3 (and most games of the time) are mainly single-threaded, this will not be a problem for them
+static std::atomic_flag exec_lock = ATOMIC_FLAG_INIT;
+
+void uw_cpu_loop(void* context)
 {
-    cpu_context* context = (cpu_context*)ctx;
+    cpu_context* ctx = (cpu_context*)context;
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
     while (true) {
-        uint32_t eip = context->EIP();
-        auto basic_block = get_basic_block(context->static_context, eip);
+        uint32_t eip = ctx->EIP();
 
-        basic_block->execute(context);
+        if (eip == 0x00626a9f) {
+            uw_log("bonk\n");
+        }
+
+        auto basic_block = get_native_basic_block(ctx->static_context, eip);
+
+        while (exec_lock.test_and_set(std::memory_order_acquire))  // acquire lock
+            ; // spin
+
+
+        basic_block->execute(ctx);
+
+        exec_lock.clear(std::memory_order_release);
     }
 #pragma clang diagnostic pop
 

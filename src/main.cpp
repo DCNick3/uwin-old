@@ -1,6 +1,5 @@
 
 #include "uwin/uwin.h"
-#include "uwin/util/mem.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +22,10 @@ int main(int argc, char** argv)
         return -1;
     } else
         fclose(f);
-    
-    uw_target_process_data_t* process_data = uw_new(uw_target_process_data_t, 1);
+
+    //freopen("stderr.log", "w", stderr);
+
+    uw_target_process_data_t* process_data = new uw_target_process_data_t();
     
     guest_base = uw_memory_map_initialize(); // reserve virtual memory
 
@@ -61,7 +62,6 @@ int main(int argc, char** argv)
     }
     
     fprintf(stderr, "Main function returned.\n");
-    return 0;
-    
-    return 0;
+
+    exit(0);
 }

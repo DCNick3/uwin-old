@@ -171,15 +171,15 @@ int cpu_interrupt(int vector, int error_code, int type, int eip_to_push)
     switch (vector) {
         case 0x80:
             thread_cpu.reg32[EAX] =
-                    do_syscall(
-                                thread_cpu.reg32[EAX],
-                                thread_cpu.reg32[EBX],
-                                thread_cpu.reg32[ECX],
-                                thread_cpu.reg32[EDX],
-                                thread_cpu.reg32[ESI],
-                                thread_cpu.reg32[EDI],
-                                thread_cpu.reg32[EBP],
-                             0, 0);
+                    uw_cpu_do_syscall(
+                            thread_cpu.reg32[EAX],
+                            thread_cpu.reg32[EBX],
+                            thread_cpu.reg32[ECX],
+                            thread_cpu.reg32[EDX],
+                            thread_cpu.reg32[ESI],
+                            thread_cpu.reg32[EDI],
+                            thread_cpu.reg32[EBP],
+                            0, 0);
             SET_VIRT_EIP(eip_to_push);
             break;
 
@@ -193,6 +193,7 @@ int cpu_interrupt(int vector, int error_code, int type, int eip_to_push)
             abort();
         }
     }
+    return 0;
 }
 
 void uw_cpu_loop(void* cpu_context) {

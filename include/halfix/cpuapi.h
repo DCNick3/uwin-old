@@ -5,14 +5,16 @@
 #include "util.h"
 #include <stdint.h>
 
-enum
-{
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+enum {
     FEATURE_EAX_1 = 0,
     FEATURE_EAX_80000000,
     FEATURE_SIZE_MAX
 };
-struct cpuid_level_info
-{
+struct cpuid_level_info {
     int eax;
     int ecx;
     int edx;
@@ -21,8 +23,7 @@ struct cpuid_level_info
     int level;
 };
 
-struct cpu_config
-{
+struct cpu_config {
     char *vendor_name;
     int level;
 
@@ -73,7 +74,7 @@ void cpu_halt(void);
 void cpu_raise_interrupt(int i);
 void cpu_set_a20(int a20);
 
-void cpu_write_mem(uint32_t addr, void* data, uint32_t length);
+void cpu_write_mem(uint32_t addr, void *data, uint32_t length);
 void cpu_init_dma(uint32_t page);
 
 // Is there an APIC connected to the CPU in some way??
@@ -88,5 +89,10 @@ void cpu_debug(void);
 uint32_t cpu_read_phys(uint32_t addr);
 
 #define MEM_RDONLY 1
+
+#ifdef __cplusplus
+};
+#endif
+
 
 #endif

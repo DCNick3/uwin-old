@@ -12,7 +12,7 @@
 namespace uwin {
     namespace jit {
 
-        std::shared_ptr<basic_block> get_basic_block(cpu_static_context& ctx, uint32_t eip);
+        std::shared_ptr<basic_block> get_native_basic_block(cpu_static_context& ctx, uint32_t eip);
 
     }
 }

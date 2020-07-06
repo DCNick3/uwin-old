@@ -7,11 +7,20 @@
 #include "halfix/util.h"
 #include "uwin/mem.h"
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define FLOATX80
+
 #include "halfix/softfloat/softfloat.h"
 #include "halfix/softfloat/softfloatx80.h"
+
 #define NEED_STRUCT
+
 #include "fpu.h"
+
 #undef NEED_STRUCT
 
 #define ES 0
@@ -205,7 +214,7 @@ enum {
 #define TRACE_LENGTH(flags) (flags & 0x3FF)
 struct trace_info {
     uint32_t phys, state_hash;
-    struct decoded_instruction* ptr;
+    struct decoded_instruction *ptr;
     uint32_t flags;
 };
 
@@ -262,9 +271,9 @@ struct cpu {
     // ========================================================================
     uint64_t cycles, cycle_frame_end; // Number of CPU cycles run, used for internal timing
     int cycles_to_run, // Cycles left in current time slice to run
-        refill_counter, // If we have to exit the loop for some reason, cycles_to_run will be set to 1 and refill_counter will be set to old value of cycles_to_run -1
-        hlt_counter, // Cycles remaining in the execution frame if we exit out due to a HLT
-        cycle_offset;
+    refill_counter, // If we have to exit the loop for some reason, cycles_to_run will be set to 1 and refill_counter will be set to old value of cycles_to_run -1
+    hlt_counter, // Cycles remaining in the execution frame if we exit out due to a HLT
+    cycle_offset;
 
     // ========================================================================
     // Protected Mode
@@ -350,7 +359,7 @@ struct cpu {
     // ========================================================================
 
     uint32_t smc_has_code_length;
-    uint32_t* smc_has_code;
+    uint32_t *smc_has_code;
 
     uint32_t tlb_entry_count;
     uint32_t tlb_entry_indexes[MAX_TLB_ENTRIES];
@@ -361,7 +370,7 @@ struct cpu {
 #define TLB_ATTR_NON_GLOBAL 2
     // Interesting information on TLB
     uint8_t tlb_attrs[1 << 20];
-    void* tlb[1 << 20];
+    void *tlb[1 << 20];
 
     // Actual trace cache
     struct decoded_instruction trace_cache[TRACE_CACHE_SIZE];
@@ -517,87 +526,138 @@ extern __thread struct cpu *thread_cpu_ptr;
 #endif
 
 // decoder.c
-int cpu_decode(struct trace_info* info, struct decoded_instruction* i);
+int cpu_decode(struct trace_info *info, struct decoded_instruction *i);
 
 // General execution
 void cpu_execute(void);
 
 // ops/stack.c
 int cpu_push16(uint32_t data);
+
 int cpu_push32(uint32_t data);
-int cpu_pop16(uint16_t* dest);
-int cpu_pop16_dest32(uint32_t* dest);
-int cpu_pop32(uint32_t* dest);
+
+int cpu_pop16(uint16_t *dest);
+
+int cpu_pop16_dest32(uint32_t *dest);
+
+int cpu_pop32(uint32_t *dest);
 
 // access.c
 int cpu_access_read8(uint32_t addr, uint32_t tag, int shift);
+
 int cpu_access_read16(uint32_t addr, uint32_t tag, int shift);
+
 int cpu_access_read32(uint32_t addr, uint32_t tag, int shift);
+
 int cpu_access_write8(uint32_t addr, uint32_t data, uint32_t tag, int shift);
+
 int cpu_access_write16(uint32_t addr, uint32_t data, uint32_t tag, int shift);
+
 int cpu_access_write32(uint32_t addr, uint32_t data, uint32_t tag, int shift);
+
 int cpu_access_verify(uint32_t addr, uint32_t end, int shift);
 
 // seg.c
 void cpu_seg_load_virtual(int id, uint16_t sel);
+
 void cpu_seg_load_real(int id, uint16_t sel);
-int cpu_seg_load_protected(int id, uint16_t sel, struct seg_desc* info);
-int cpu_seg_load_descriptor2(int table, uint32_t selector, struct seg_desc* seg, int exception, int code);
-int cpu_seg_load_descriptor(uint32_t selector, struct seg_desc* seg, int exception, int code);
+
+int cpu_seg_load_protected(int id, uint16_t sel, struct seg_desc *info);
+
+int cpu_seg_load_descriptor2(int table, uint32_t selector, struct seg_desc *seg, int exception, int code);
+
+int cpu_seg_load_descriptor(uint32_t selector, struct seg_desc *seg, int exception, int code);
+
 int cpu_seg_get_dpl(int seg);
-uint32_t cpu_seg_get_base(struct seg_desc* info);
-uint32_t cpu_seg_get_limit(struct seg_desc* info);
-uint32_t cpu_seg_gate_target_segment(struct seg_desc* info);
-uint32_t cpu_seg_gate_target_offset(struct seg_desc* info);
-uint32_t cpu_seg_gate_parameter_count(struct seg_desc* info);
+
+uint32_t cpu_seg_get_base(struct seg_desc *info);
+
+uint32_t cpu_seg_get_limit(struct seg_desc *info);
+
+uint32_t cpu_seg_gate_target_segment(struct seg_desc *info);
+
+uint32_t cpu_seg_gate_target_offset(struct seg_desc *info);
+
+uint32_t cpu_seg_gate_parameter_count(struct seg_desc *info);
+
 uint32_t cpu_seg_descriptor_address(int tbl, uint16_t sel);
+
 int cpu_load_seg_value_mov(int seg, uint16_t val);
+
 void cpu_load_csip_real(uint16_t cs, uint32_t eip);
+
 void cpu_load_csip_virtual(uint16_t cs, uint32_t eip);
-int cpu_load_csip_protected(uint16_t cs, struct seg_desc* info, uint32_t eip);
+
+int cpu_load_csip_protected(uint16_t cs, struct seg_desc *info, uint32_t eip);
 
 // smc.c
 int cpu_smc_page_has_code(uint32_t phys);
+
 int cpu_smc_has_code(uint32_t phys);
+
 void cpu_smc_invalidate(uint32_t lin, uint32_t phys);
+
 void cpu_smc_invalidate_page(uint32_t phys);
+
 void cpu_smc_set_code(uint32_t phys);
 
 // mmu.c
 void cpu_mmu_tlb_flush(void);
+
 void cpu_mmu_tlb_flush_nonglobal(void);
+
 int cpu_mmu_translate(uint32_t lin, int shift);
+
 void cpu_mmu_tlb_invalidate(uint32_t lin);
 
 // trace.c
-struct trace_info* cpu_trace_get_entry(uint32_t phys);
-struct decoded_instruction* cpu_get_trace(void);
+struct trace_info *cpu_trace_get_entry(uint32_t phys);
+
+struct decoded_instruction *cpu_get_trace(void);
+
 void cpu_trace_flush(void);
 
 // eflags.c
 int cpu_get_of(void);
+
 int cpu_get_sf(void);
+
 #define cpu_get_zf() (thread_cpu.lr == 0)
+
 int cpu_get_af(void);
+
 int cpu_get_pf(void);
+
 int cpu_get_cf(void);
+
 void cpu_set_of(int);
+
 void cpu_set_sf(int);
+
 void cpu_set_zf(int);
+
 void cpu_set_af(int);
+
 void cpu_set_pf(int);
+
 void cpu_set_cf(int);
+
 uint32_t cpu_get_eflags(void);
+
 void cpu_set_eflags(uint32_t);
+
 int cpu_cond(int val);
 
 // prot.c
 int cpu_prot_set_cr(int cr, uint32_t v);
+
 void cpu_prot_set_dr(int cr, uint32_t v);
+
 void cpu_prot_update_cpl(void);
 
 // ops/ctrlflow.c
 void cpu_exception(int vec, int code);
+
 int cpu_interrupt(int vector, int code, int type, int eip_to_push);
 
 // SSE
@@ -605,8 +665,21 @@ void cpu_update_mxcsr(void);
 
 // XXX
 #ifndef CPUAPI_H
+
 void cpu_debug(void);
+
 uint64_t cpu_get_cycles(void);
+
+#ifdef UW_USE_JITFIX
+void mem_make_dirty(uint32_t addr, uint32_t size);
+#else
+#define mem_make_dirty(a, b) {(void)a; (void)b;}
+#endif
+
+#endif
+
+#ifdef __cplusplus
+};
 #endif
 
 #endif

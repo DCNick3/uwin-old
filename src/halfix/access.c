@@ -73,6 +73,8 @@ int cpu_access_write8(uint32_t addr, uint32_t data, uint32_t tag, int shift)
     void* host_ptr = g2h(addr);
     uint32_t phys = PTR_TO_PHYS(host_ptr);
 
+    mem_make_dirty(phys, 8);
+
     if (cpu_smc_has_code(phys))
         cpu_smc_invalidate(addr, phys);
     *(_Atomic(uint8_t)*)host_ptr = data;
@@ -96,6 +98,9 @@ int cpu_access_write16(uint32_t addr, uint32_t data, uint32_t tag, int shift)
 
     void* host_ptr = g2h(addr);
     uint32_t phys = PTR_TO_PHYS(host_ptr);
+
+    mem_make_dirty(phys, 16);
+
     if (cpu_smc_has_code(phys))
         cpu_smc_invalidate(addr, phys);
     *(_Atomic(uint16_t)*)host_ptr = data;
@@ -120,6 +125,9 @@ int cpu_access_write32(uint32_t addr, uint32_t data, uint32_t tag, int shift)
 
     void* host_ptr = g2h(addr);
     uint32_t phys = PTR_TO_PHYS(host_ptr);
+
+    mem_make_dirty(phys, 32);
+
     if (cpu_smc_has_code(phys))
         cpu_smc_invalidate(addr, phys);
     *(_Atomic(uint32_t)*)host_ptr = data;

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 option(USE_HALFIX "Use halfix for x86 cpu emulation" ON)
 option(USE_JIT "Use jit for cpu emulation" OFF)
+option(USE_JITFIX "Enable validation code for jit based on halfix" OFF)
 
 include_directories(include)
 
@@ -13,7 +14,18 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(SDL2 REQUIRED)
 
-set(HALFIX_CPU_SOURCES
+include_directories(${SDL2_INCLUDE_DIRS})
+
+if("${SDL2_LIBRARIES}" STREQUAL "")
+    # CMake is portable? Nope, lol.
+    # Depending on how SDL2 was built its usage differs
+    set(SDL2_LIBRARIES "SDL2::SDL2")
+endif()
+
+set(USED_LIBS m Threads::Threads ${SDL2_LIBRARIES})
+
+
+set(HALFIX_SOURCES
         src/halfix/ops/arith.c
         src/halfix/ops/bit.c
         src/halfix/ops/ctrlflow.c
@@ -34,10 +46,14 @@ set(HALFIX_CPU_SOURCES
         src/halfix/smc.c
         src/halfix/softfloat.c
         src/halfix/trace.c
+        )
+
+set(HALFIX_CPU_SOURCES
+        ${HALFIX_SOURCES}
         src/uwin/halfix_cpu_loop.c)
 
-set(SLJIT_SOURCES
-        src/sljit/sljitLir.c)
+set(AARCH64_JIT_SOURCES
+        src/uwin-jit/aarch64_code_generator.cpp)
 
 set(JIT_SOURCES
         ${SLJIT_SOURCES}
@@ -45,7 +61,21 @@ set(JIT_SOURCES
         src/uwin-jit/basic_block.cpp
         src/uwin-jit/basic_block_compiler.cpp
         src/uwin-jit/basic_block_cache.cpp
-        src/uwin-jit/sljit.cpp)
+        src/uwin-jit/executable_memory_allocator.cpp)
+
+if(USE_JIT)
+    if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+        list(APPEND JIT_SOURCES src/uwin-jit/aarch64_code_generator.cpp)
+
+        # include vixl code generation library
+        list(APPEND USED_LIBS vixl)
+
+        add_subdirectory("ext-deps/vixl")
+    else()
+        message(FATAL_ERROR "This platform does not have jit backend.")
+    endif()
+endif()
+
 
 set(UWIN_POSIX_SOURCES
         src/uwin/host/posix/memory_map.c
@@ -62,14 +92,14 @@ set(UWIN_SOURCES
         src/uwin/util/mem.c
         src/uwin/ldr.cpp
         src/uwin/thread.c
-        src/uwin/handletable.c
+        src/uwin/handletable.cpp
         src/uwin/syscall.c
         src/uwin/cfg.c
         src/uwin/file.cpp
         src/uwin/win32_mq.cpp
         src/uwin/sdl_ui_gmq.cpp
         src/fcaseopen.c
-        src/main.c
+        src/main.cpp
         src/stb_ds.c
         src/ini.c
         src/uwin/syncronization.c)
@@ -90,17 +120,36 @@ if (USE_JIT)
     option(ZYDIS_BUILD_TOOLS "" OFF)
     option(ZYDIS_BUILD_EXAMPLES "" OFF)
     add_subdirectory("ext-deps/zydis")
+    add_subdirectory("ext-deps/libx87")
+    list(APPEND USED_LIBS x87)
+endif()
+
+if (USE_JITFIX)
+    if (!USE_JIT)
+        message(FATAL_ERROR "jitfix requires jit")
+    endif()
+    message("Enabling JITFIX support")
+    list(APPEND UWIN_SOURCES ${HALFIX_SOURCES})
+    add_definitions(-DUW_USE_JITFIX)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DUW_DEBUG)
+    #add_definitions(-DUW_JIT_TRACE)
 endif (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
-set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
+set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
+set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
 
-include_directories(${SDL2_INCLUDE_DIRS})
+set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
+set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer")
+set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer")
+
+#set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -pg")
+#set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -pg")
+#set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -pg")
+
 
 add_executable(uwin
         ${UWIN_SOURCES})
@@ -108,12 +157,9 @@ add_executable(uwin
 add_custom_command(OUTPUT ${DLLS_FILE} dummy_file_that_will_never_exist
         COMMAND make -j1 -C ${CMAKE_SOURCE_DIR}/src/uwin/target_dlls DEST_FILE="${DLLS_FILE}")
 
-if("${SDL2_LIBRARIES}" STREQUAL "")
-    set(SDL2_LIBRARIES "SDL2::SDL2")
-endif()
-
-target_link_libraries(uwin m Threads::Threads ${SDL2_LIBRARIES})
-
 if (USE_JIT)
-    target_link_libraries(uwin Zydis)
+    list(APPEND USED_LIBS Zydis)
 endif()
+
+target_link_libraries(uwin ${USED_LIBS})
+
