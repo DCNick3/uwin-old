@@ -33,6 +33,7 @@ extern "C" {
 
 #include <assert.h>
 
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <memory>

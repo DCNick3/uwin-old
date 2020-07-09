@@ -78,7 +78,7 @@ namespace uwin {
                     dump_instruction(instruction);
 #endif
 
-                    if (!code_generator.emit_instruction(guest_address, instruction))
+                    if (!code_generator.emit_instruction(guest_address, instruction, block_size > 0x10000))
                         break;
                 }
 

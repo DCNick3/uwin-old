@@ -209,9 +209,12 @@ void uw_thread_leave(void) {
     uw_thread_t *thread = uw_current_thread;
     
     // TODO: do the initial cleanup
-    
+
+    // allow other threads to execute
+    uw_break_cpu_loop();
+
     pthread_mutex_lock(&thread->termination_mutex);
-    
+
     thread->thread_data.running = 0;
     pthread_cond_broadcast(&thread->termination_cond);
     

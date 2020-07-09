@@ -46,11 +46,19 @@ namespace uwin {
             //NT = 0x4000,
             //RF = 0x10000,
             //VM = 0x20000,
-            //AC = 0x40000,
+            AC = 0x40000,
             //VIF = 0x80000,
             //VIP = 0x100000,
-            //ID = 0x200000
+            ID = 0x200000
         };
+
+        static const uint32_t supported_flags_mask =
+                static_cast<int>(cpu_flags::CF) |
+                static_cast<int>(cpu_flags::ZF) |
+                static_cast<int>(cpu_flags::SF) |
+                static_cast<int>(cpu_flags::OF) |
+                static_cast<int>(cpu_flags::AC) |
+                static_cast<int>(cpu_flags::ID);
 
         enum class cpu_condition {
             o,
@@ -185,7 +193,9 @@ namespace uwin {
 
             inline cpu_context()
                 : fpu_ctx(new fpu_context(*this))
-            {}
+            {
+                EFLAGS() = static_cast<int>(cpu_flags::ID); // we support cpuid instruction
+            }
 
             inline ~cpu_context() { delete fpu_ctx; }
 

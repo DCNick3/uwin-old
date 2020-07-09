@@ -106,7 +106,7 @@ BOOL WINAPI HeapDestroy(HANDLE hHeap) {
 
 
 LPVOID WINAPI HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
-    kprintf("HeapAlloc(%p, %x, %x)", hHeap, dwFlags, dwBytes);
+    //kprintf("HeapAlloc(%p, %x, %x)", hHeap, dwFlags, dwBytes);
     rpmalloc_heap_t* heap = (rpmalloc_heap_t*)hHeap;
     if (dwFlags & HEAP_NO_SERIALIZE)
         kpanicf("HeapAlloc(%p, %x, %x)", hHeap, dwFlags, dwBytes);
@@ -125,7 +125,7 @@ LPVOID WINAPI HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
 }
 
 BOOL WINAPI HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
-    kprintf("HeapFree(%p, %x, %p)", hHeap, dwFlags, lpMem);
+    //kprintf("HeapFree(%p, %x, %p)", hHeap, dwFlags, lpMem);
     rpmalloc_heap_t* heap = (rpmalloc_heap_t*)hHeap;
     rpmalloc_heap_free(heap, lpMem);
     return TRUE;
@@ -242,7 +242,7 @@ UINT WINAPI GetACP() {
 BOOL WINAPI GetCPInfo(UINT CodePage, LPCPINFO lpCPInfo) {
     kprintf("GetCPInfo(%x, %p)", CodePage, lpCPInfo);
     if (CodePage != CP_US)
-        kpanicf("GetCPInfo(%d, %p)", CodePage, lpCPInfo);
+        kpanicf("GetCPInfo(%x, %p)", CodePage, lpCPInfo);
     lpCPInfo->MaxCharSize = 1;
     lpCPInfo->DefaultChar[0] = '?';
     lpCPInfo->DefaultChar[1] = '\0';

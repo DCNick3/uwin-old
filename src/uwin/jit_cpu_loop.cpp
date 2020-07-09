@@ -115,3 +115,8 @@ void uw_cpu_loop(void* context)
 
     assert("not implemented" == 0);
 }
+
+void uw_break_cpu_loop(void)
+{
+    exec_lock.clear(std::memory_order_release);
+}

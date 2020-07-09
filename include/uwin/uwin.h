@@ -146,6 +146,7 @@ void uw_cpu_panic(const char* message);
 void uw_cpu_setup_thread(void* cpu_context, uw_target_thread_data_t *params);
 
 void uw_cpu_loop(void* cpu_context);
+void uw_break_cpu_loop(void);
 
 uint64_t uw_get_time_us(void);  // TODO: migrate from this function
 uint64_t uw_get_monotonic_time(void);
@@ -242,7 +243,7 @@ typedef struct target_uw_locked_surf_desc {
 
 // ui libraries: gfx (surface manipulation), input and wave
 // all pixel formats are RGB565
-void uw_ui_initialize(void);
+void uw_ui_initialize(int interactive);
 void uw_ui_finalize(void);
 
 uw_surf_t* uw_ui_surf_alloc(int32_t width, int32_t height);

@@ -100,7 +100,6 @@ set(UWIN_SOURCES
         src/uwin/sdl_ui_gmq.cpp
         src/fcaseopen.c
         src/main.cpp
-        src/stb_ds.c
         src/ini.c
         src/uwin/syncronization.c)
 

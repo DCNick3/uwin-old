@@ -176,6 +176,10 @@ void uwin::jit::basic_block::halfix_enter(uwin::jit::cpu_context *ctx) {
     thread_cpu.reg32[HALFIX_EDI] = ctx->EDI();
     cpu_set_eflags((cpu_get_eflags() & flag_upd_mask) | ctx->EFLAGS());
 
+#ifdef UW_JIT_TRACE
+    uw_log("EFLAGS = %x\n", ctx->EFLAGS());
+#endif
+
     SET_VIRT_EIP(guest_address);
 
     uint32_t initial_eip = guest_address;
@@ -221,16 +225,20 @@ void uwin::jit::basic_block::halfix_leave(uwin::jit::cpu_context *ctx) {
 
     if (instr.mnemonic == ZYDIS_MNEMONIC_IMUL)
         actual_used_flags = F_OF | F_CF;
+    //if (instr.mnemonic == ZYDIS_MNEMONIC_SAR)
+    //    actual_used_flags &= ~F_CF; // see https://github.com/nepx/halfix/issues/7
 
-    if (!dirty) {
-        TST(EAX);
-        TST(EBX);
-        TST(ECX);
-        TST(EDX);
-        TST(ESP);
-        TST(EBP);
-        TST(ESI);
-        TST(EDI);
+    if (!dirty && instr.mnemonic != ZYDIS_MNEMONIC_CPUID) {
+        if (instr.mnemonic != ZYDIS_MNEMONIC_BSF || (cpu_get_eflags() & static_cast<int>(cpu_flags::ZF)) == 0) {
+            TST(EAX);
+            TST(EBX);
+            TST(ECX);
+            TST(EDX);
+            TST(ESP);
+            TST(EBP);
+            TST(ESI);
+            TST(EDI);
+        }
         if (VIRT_EIP() != ctx->EIP())
             mismatch(xmem, guest_address, "EIP",
                      ctx->EFLAGS() & flag_used_mask, cpu_get_eflags() & flag_used_mask);

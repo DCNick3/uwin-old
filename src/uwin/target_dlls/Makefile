@@ -2,6 +2,11 @@
 DLL_NAMES=KSVC IFC20 INIT VERSION KERNEL32 USER32 GDI32 ADVAPI32 OLE32 WINMM DDRAW WSOCK32 SHELL32 MSS32 BINKW32
 DLL_FILES=$(foreach dll,$(DLL_NAMES),bin/$(dll).DLL)
 
+EXE_NAMES=JITTEST
+EXE_FILES=$(foreach exe,$(EXE_NAMES),bin/$(exe).EXE)
+
+FILES=$(DLL_FILES) $(EXE_FILES)
+
 MINGW_PREFIX?=i686-w64-mingw32-
 MINGW_CC=$(MINGW_PREFIX)gcc
 MINGW_CFLAGS=-I$(realpath ../../../include/uwin/) -I$(realpath include) -L$(realpath bin)
@@ -32,9 +37,15 @@ $(DLL_NAMES): mkbin
 	cp $@/$(call lc,$@).elf debug/
 	cp $@/lib$@.a bin/ 2> /dev/null|| true
 	
-$(DLL_FILES): $(DLL_NAMES)
+$(EXE_NAMES): mkbin
+	make CC="$(MINGW_CC)" STRIP="$(MINGW_STRIP)" OBJCOPY="$(MINGW_OBJCOPY)" CFLAGS="$(MINGW_CFLAGS)" -C $@
+	cp $@/$@.EXE bin/
+
 	
-dlls.c: $(DLL_FILES)
+$(DLL_FILES): $(DLL_NAMES)
+$(EXE_FILES): $(EXE_NAMES)
+
+dlls.c: $(DLL_FILES) $(EXE_FILES)
 	python3 build_dll_archive.py $(DEST_FILE) $(DLL_FILES)
 
 .PHONY: $(DLL_NAMES) mkbin all

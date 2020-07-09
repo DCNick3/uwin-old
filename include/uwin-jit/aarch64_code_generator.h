@@ -42,6 +42,8 @@ namespace uwin {
             shl,
             imul,
             mul,
+            rol,
+            ror,
         };
 
         class aarch64_code_generator {
@@ -214,14 +216,6 @@ namespace uwin {
 
             tmp_holder emit_load_effective_address_tmp(const ZydisDecodedOperand& mem_operand);
 
-            tmp_holder emit_load_fpu_top();
-            void emit_store_fpu_top(const tmp_holder& top);
-
-            void emit_fpu_push64(const tmp_holder& top, const tmp_holder& src);
-            void emit_fpu_store64(const tmp_holder& top, const tmp_holder& src, int32_t offset);
-            void emit_fpu_peek64(const tmp_holder& top, const tmp_holder& dst, int32_t offset);
-            void emit_fpu_pop64(const tmp_holder& top, const tmp_holder& dst);
-
             const vixl::aarch64::XRegister& cpu_ctx_reg() {
                 return vixl::aarch64::x0;
             }
@@ -259,7 +253,7 @@ namespace uwin {
 
             void emit_prologue();
             void emit_epilogue();
-            bool emit_instruction(uint32_t guest_eip, const ZydisDecodedInstruction& instr);
+            bool emit_instruction(uint32_t guest_eip, const ZydisDecodedInstruction& instr, bool force_terminate_block = false);
 
             xmem_piece commit();
 

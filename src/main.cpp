@@ -3,20 +3,37 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
 void* guest_base;
 
 
 int main(int argc, char** argv)
 {
-    if (argc < 2) {
+    int interactive = 1;
+    std::string exec_path = "";
+    for (int i = 1; i < argc; i++) {
+        auto str = std::string(argv[i]);
+        if (str[0] == '-' && str[1] == '-') {
+            auto flag = str.substr(2);
+            if (flag == "non-interactive") {
+                interactive = 0;
+            } else {
+                fprintf(stderr, "Unknown flag: %s\n", flag.c_str());
+                return -1;
+            }
+        } else {
+            exec_path = str;
+        }
+    }
+
+    if (exec_path == "") {
         fprintf(stderr, "Please, specify a program to run.\n");
         return -1;
     }
-    
-    const char *exec_path = argv[1];
 
-    FILE* f = fopen(exec_path, "r");
+
+    FILE* f = fopen(exec_path.c_str(), "r");
     if (f == NULL) {
         perror("Cannot open provided program");
         return -1;
@@ -33,7 +50,7 @@ int main(int argc, char** argv)
     uw_mut_initialize();
     uw_cond_initialize();
     uw_file_initialize();
-    uw_ui_initialize();
+    uw_ui_initialize(interactive);
     uw_ht_initialize();
     uw_cfg_initialize();
     uw_thread_initialize();
@@ -43,7 +60,7 @@ int main(int argc, char** argv)
     uw_sighandler_initialize();
     
     
-    void* initial_thread_param = ldr_load_executable_and_prepare_initial_thread(exec_path, process_data);
+    void* initial_thread_param = ldr_load_executable_and_prepare_initial_thread(exec_path.c_str(), process_data);
     ldr_print_memory_map();
     
     uw_start_initial_thread(initial_thread_param);

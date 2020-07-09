@@ -33,7 +33,9 @@ namespace uwin {
         public:
             inline basic_block(uint32_t guest_address, uint32_t size, xmem_piece xmem)
                 : guest_address(guest_address), size(size), xmem(std::move(xmem))
-            {}
+            {
+                this->xmem.prepare_execute();
+            }
 
             inline void execute(cpu_context* ctx) {
 #ifdef UW_JIT_TRACE
@@ -43,11 +45,9 @@ namespace uwin {
 #ifdef UW_USE_JITFIX
                 halfix_enter(ctx);
 #endif
-
-                xmem.prepare_execute();
                 auto func = reinterpret_cast<basic_block_func>(xmem.rx_ptr());
 
-                if (guest_address == 0x055BD6B) {
+                if (guest_address == 0x010128ec) {
                     uw_log("bonk\n");
                 }
 

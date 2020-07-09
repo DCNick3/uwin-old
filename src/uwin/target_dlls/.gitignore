@@ -2,7 +2,9 @@
 bin/
 debug/
 **/*.DLL
+**/*.EXE
 **/*.elf
 **/*.a
 dlls.a
+dlls.c
 **/.depend

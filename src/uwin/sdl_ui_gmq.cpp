@@ -16,6 +16,7 @@ struct uw_surf {
 };
 
 static uint32_t sdl_gmq_event, sdl_surf_request_event;
+static bool interactive_mode = false;
 
 struct surf_request {
     bool done = false;
@@ -120,41 +121,60 @@ struct fill_surf_request : public surf_request {
 };
 
 static SDL_Window* window;
-static SDL_Surface* primary_surface;
+static SDL_Surface* primary_surface = nullptr;
 
 static pthread_t main_thread;
 
-void uw_ui_initialize(void) {
+void uw_ui_initialize(int interactive) {
     main_thread = pthread_self();
+
+    interactive_mode = interactive != 0;
 
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "1");
 
-    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) != 0) {
-        uw_log("Unable to initialize SDL: %s\n", SDL_GetError());
-        abort();
-    }
-    window = SDL_CreateWindow("uwin-sdl", 
-                                        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
-                                        800, 600, 
-                                        SDL_WINDOW_MINIMIZED); // this one is temporary, for debugging
-    if (window == NULL) {
-        uw_log("Could not create window: %s\n", SDL_GetError());
-        abort();
-    }
-    
-    primary_surface = SDL_GetWindowSurface(window);
-    SDL_ShowCursor(SDL_DISABLE);
+    if (interactive_mode) {
+        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+            uw_log("Unable to initialize SDL: %s\n", SDL_GetError());
+            abort();
+        }
+        window = SDL_CreateWindow("uwin-sdl",
+                                  SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                                  800, 600,
+                                  SDL_WINDOW_MINIMIZED); // this one is temporary, for debugging
+        if (window == NULL) {
+            uw_log("Could not create window: %s\n", SDL_GetError());
+            abort();
+        }
 
-    SDL_FillRect(primary_surface, NULL, 0);
+        primary_surface = SDL_GetWindowSurface(window);
+        SDL_ShowCursor(SDL_DISABLE);
 
-    SDL_UpdateWindowSurface(window);
+        SDL_FillRect(primary_surface, NULL, 0);
+
+        SDL_UpdateWindowSurface(window);
+    } else {
+        if (SDL_Init(SDL_INIT_AUDIO) != 0) {
+            uw_log("Unable to initialize SDL: %s\n", SDL_GetError());
+            abort();
+        }
+
+        size_t sz = UW_ALIGN_UP(800 * 600, uw_host_page_size);
+        uint32_t v = uw_target_map_memory_dynamic(sz, UW_PROT_RW);
+        assert(v != (uint32_t) -1);
+        void *mem = g2h(v);
+
+        primary_surface = SDL_CreateRGBSurfaceWithFormatFrom(mem, 800, 600, 16, 800, SDL_PIXELFORMAT_RGB565);
+        assert(primary_surface != nullptr);
+    }
 }
 
 void uw_ui_finalize(void) {
-    SDL_Window* w = window;
-    if (w != NULL)
-        SDL_DestroyWindow(w);
-    SDL_Quit();
+    if (interactive_mode) {
+        SDL_Window *w = window;
+        if (w != NULL)
+            SDL_DestroyWindow(w);
+        SDL_Quit();
+    }
 }
 
 
@@ -416,9 +436,11 @@ static void finish_surf_processing(uw_surf_t* surf) {
     char filename[80];
     //sprintf(filename, "sdl_dump/%p_%08d.bpm", surf, bmp_id++);
     //SDL_SaveBMP(primary_surface, filename);
-        
-    if (surf == (uw_surf_t*)primary_surface) {
-        SDL_UpdateWindowSurface(window);
+
+    if (interactive_mode) {
+        if (surf == (uw_surf_t *) primary_surface) {
+            SDL_UpdateWindowSurface(window);
+        }
     }
 }
 
@@ -432,21 +454,21 @@ uw_surf_t* uw_ui_surf_alloc(int32_t width, int32_t height) {
     }
 
     // we want to manually allocate surface for it to be accesible by guest
-    
+
     size_t pitch = UW_ALIGN_UP(width, 4) * 2;
     size_t sz = UW_ALIGN_UP(pitch * height, uw_host_page_size);
     uint32_t v = uw_target_map_memory_dynamic(sz, UW_PROT_RW);
-    assert(v != (uint32_t)-1);
-    void* mem = g2h(v);
-    
-    SDL_Surface* res = SDL_CreateRGBSurfaceWithFormatFrom(mem, width, height, 16, pitch, SDL_PIXELFORMAT_RGB565);
+    assert(v != (uint32_t) -1);
+    void *mem = g2h(v);
+
+    SDL_Surface *res = SDL_CreateRGBSurfaceWithFormatFrom(mem, width, height, 16, pitch, SDL_PIXELFORMAT_RGB565);
     assert(res != NULL);
     SDL_SetSurfaceRLE(res, 0);
-    return (uw_surf_t*)res;
+    return (uw_surf_t *) res;
 }
 
 void uw_ui_surf_free(uw_surf_t* surf) {
-    if (surf == (uw_surf_t*)primary_surface)
+    if (surf == (uw_surf_t *) primary_surface)
         return;
 
     if (!pthread_equal(pthread_self(), main_thread)) {
@@ -455,8 +477,8 @@ void uw_ui_surf_free(uw_surf_t* surf) {
         rq.execute_remote();
         return;
     }
-    
-    void* pixdata = surf->sdl_surf.pixels;
+
+    void *pixdata = surf->sdl_surf.pixels;
     size_t pitch = UW_ALIGN_UP(surf->sdl_surf.w, 4);
     size_t sz = UW_ALIGN_UP(pitch * surf->sdl_surf.h * 2, uw_host_page_size);
     uw_unmap_memory(h2g(pixdata), sz);
@@ -472,6 +494,7 @@ void uw_ui_surf_lock(uw_surf_t* surf, uw_locked_surf_desc_t* locked) {
         return;
     }
 
+    //assert(&surf->sdl_surf != primary_surface); // the pointer to data would be not in the guest address space
     int r = SDL_LockSurface(&surf->sdl_surf);
     assert(r == 0);
     locked->data  = surf->sdl_surf.pixels;
@@ -488,6 +511,7 @@ void uw_ui_surf_unlock(uw_surf_t* surf) {
         return;
     }
 
+    //  assert(&surf->sdl_surf != primary_surface); // the pointer to data would be not in the guest address space
     SDL_UnlockSurface(&surf->sdl_surf);
     
     finish_surf_processing(surf);
@@ -572,26 +596,28 @@ void uw_ui_surf_blit_srckeyed(uw_surf_t* src, const uw_rect_t* src_rect, uw_surf
 }
 
 void uw_ui_surf_fill(uw_surf_t* dst, uw_rect_t* dst_rect, uint16_t color) {
-    if (!pthread_equal(pthread_self(), main_thread)) {
-        fill_surf_request rq;
-        rq.dst = dst;
-        rq.dst_rect = dst_rect;
-        rq.color = color;
-        rq.execute_remote();
-        return;
-    }
+    if (interactive_mode) {
+        if (!pthread_equal(pthread_self(), main_thread)) {
+            fill_surf_request rq;
+            rq.dst = dst;
+            rq.dst_rect = dst_rect;
+            rq.color = color;
+            rq.execute_remote();
+            return;
+        }
 
-    if (dst_rect) {
-        // TODO: clipping of the dst rectangle is not done
-        SDL_Rect rect = uw_rect_to_sdl_rect(dst_rect);
-        int r = SDL_FillRect(&dst->sdl_surf, &rect, color);
-        assert(!r);
-    } else {
-        int r = SDL_FillRect(&dst->sdl_surf, NULL, color);
-        assert(!r);
+        if (dst_rect) {
+            // TODO: clipping of the dst rectangle is not done
+            SDL_Rect rect = uw_rect_to_sdl_rect(dst_rect);
+            int r = SDL_FillRect(&dst->sdl_surf, &rect, color);
+            assert(!r);
+        } else {
+            int r = SDL_FillRect(&dst->sdl_surf, NULL, color);
+            assert(!r);
+        }
+
+        finish_surf_processing(dst);
     }
-    
-    finish_surf_processing(dst);
 }
 
 uw_surf_t* uw_ui_surf_get_primary(void) {

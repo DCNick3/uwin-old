@@ -65,7 +65,10 @@ namespace uwin {
                 case ZYDIS_REGISTER_DI:
                 case ZYDIS_REGISTER_EDI: return cpu_reg::EDI;
 
+                case ZYDIS_REGISTER_SP:
                 case ZYDIS_REGISTER_ESP: return cpu_reg::ESP;
+
+                case ZYDIS_REGISTER_BP:
                 case ZYDIS_REGISTER_EBP: return cpu_reg::EBP;
 
                 default:
@@ -149,7 +152,7 @@ namespace uwin {
             throw std::exception();
         }
 
-        static cpu_segment zydis_seg(const ZydisRegister& reg) {
+        static cpu_segment zydis_seg(const ZydisRegister reg) {
             switch (reg) {
                 case ZYDIS_REGISTER_CS: return cpu_segment::CS;
                 case ZYDIS_REGISTER_DS: return cpu_segment::DS;
@@ -159,6 +162,20 @@ namespace uwin {
                 case ZYDIS_REGISTER_GS: return cpu_segment::GS;
                 default:
                     throw std::exception();
+            }
+        }
+
+        static bool zydis_is_seg(const ZydisRegister reg) {
+            switch (reg) {
+                case ZYDIS_REGISTER_CS:
+                case ZYDIS_REGISTER_DS:
+                case ZYDIS_REGISTER_ES:
+                case ZYDIS_REGISTER_SS:
+                case ZYDIS_REGISTER_FS:
+                case ZYDIS_REGISTER_GS:
+                    return true;
+                default:
+                    return false;
             }
         }
 
@@ -259,6 +276,25 @@ namespace uwin {
         }
 
         template<typename E>
+        static cpu_context* repe_scas_runtime_helper(cpu_context* ctx)
+        {
+            size_t num = ctx->ECX();
+            E* ptr = g2hx<E>(ctx->EDI());
+            E cmp = static_cast<E>(ctx->EAX());
+
+            size_t i = 0;
+            bool cont = true;
+            while (i < num && cont) {
+                cont = ptr[i] == cmp;
+                i++;
+            }
+
+            ctx->EDI() += sizeof(E) * i;
+            ctx->ECX() -= i;
+            return ctx;
+        }
+
+        template<typename E>
         static cpu_context* repe_cmps_runtime_helper(cpu_context* ctx)
         {
             size_t num = ctx->ECX();
@@ -298,6 +334,31 @@ namespace uwin {
             return ctx;
         }
 
+        static cpu_context* check_flags_helper(cpu_context* ctx)
+        {
+            assert((ctx->EFLAGS() & supported_flags_mask) == ctx->EFLAGS());
+            return ctx;
+        }
+
+        static cpu_context* cpuid_helper(cpu_context* ctx)
+        {
+            auto leaf = ctx->EAX();
+            switch (leaf) {
+                // here we tell that we are pentium 4
+                case 1:
+                    ctx->EAX() = 0x00000f12;
+                    ctx->EBX() = 0x00010000;
+                    // no extensions besides x87 =)
+                    ctx->ECX() = 0;
+                    ctx->EDX() = 0x1;
+                    break;
+                default:
+                    throw std::exception();
+            }
+
+            return ctx;
+        }
+
         static bool changes_eip(const ZydisDecodedInstruction& instr)
         {
             for (int i = 0; i < instr.operand_count; i++)
@@ -307,7 +368,7 @@ namespace uwin {
         }
 
         // atomicity of operations is provided by allowing only one compiled basic block to be executed at a time
-        bool aarch64_code_generator::emit_instruction(uint32_t guest_eip, const ZydisDecodedInstruction &instr) {
+        bool aarch64_code_generator::emit_instruction(uint32_t guest_eip, const ZydisDecodedInstruction &instr, bool force_terminate_block) {
             current_guest_eip = guest_eip;
 
             if (guest_eip == 6449829) {
@@ -371,20 +432,20 @@ namespace uwin {
                 switch (instr.mnemonic) {
                     case ZYDIS_MNEMONIC_PUSH: {
                         // Zydis sucks at this =(
-                        assert(instr.operands[0].size == 32 || instr.operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE);
+                        //assert(instr.operands[0].size == 32 || instr.operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE);
                         // how does x86 extend non-immediate values?
                         auto esp = emit_load_reg_tmp(op_size::U_32, cpu_reg::ESP);
-                        auto val = emit_load_operand_tmp(op_size::U_32, instr.operands[0]);
+                        auto val = instr.operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE
+                                ? emit_load_operand_tmp(op_size::U_32, instr.operands[0])
+                                : emit_load_operand_tmp(zydis_op_size(instr.operands[0]), instr.operands[0]);
                         masm.Sub(esp.w(), esp.w(), 4);
 
                         emit_store_memory(op_size::U_32, val, cpu_segment::SS, esp);
 
                         emit_store_reg(op_size::U_32, esp, cpu_reg::ESP);
-
                     }
                         break;
                     case ZYDIS_MNEMONIC_POP: {
-                        assert(instr.operands[0].size == 32);
                         auto esp = emit_load_reg_tmp(op_size::U_32, cpu_reg::ESP);
                         auto val = emit_load_memory_tmp(op_size::U_32, cpu_segment::SS, esp);
 
@@ -488,7 +549,7 @@ namespace uwin {
 
                         {
                             auto flags = emit_load_reg_tmp(op_size::U_32, cpu_reg::EFLAGS);
-                            assert(instr.operands[0].size == 32);
+                            //assert(instr.operands[0].size == 32);
                             masm.Tst(flags.w(), F_CF);
                             masm.Csel(flags.x(), 0b0010 << 28, 0, vixl::aarch64::Condition::ne);
                             masm.Msr(vixl::aarch64::SystemRegister::NZCV, flags.x());
@@ -590,7 +651,6 @@ namespace uwin {
                     }
                         break;
                     case ZYDIS_MNEMONIC_DIV: {
-                        assert(instr.operands[0].size == 32);
                         auto divisor = emit_load_operand_tmp(zydis_op_size(instr.operands[0]), instr.operands[0]);
                         vixl::aarch64::Label skip_de; // faults are unrecoverable
 
@@ -602,18 +662,32 @@ namespace uwin {
 
                         masm.Bind(&skip_de);
 
-                        auto dividend = emit_load_reg_tmp(op_size::U_32, cpu_reg::EAX);
+                        auto dividend = get_tmp_reg();
+                        if (instr.operands[0].size == 32) {
+                            emit_load_reg(op_size::U_32, dividend, cpu_reg::EAX);
 
-                        {
-                            auto dividend_hi = emit_load_reg_tmp(op_size::U_32, cpu_reg::EDX);
-                            masm.Orr(dividend.x(), dividend.x(),
-                                     vixl::aarch64::Operand(dividend_hi.x(), vixl::aarch64::Shift::LSL, 32));
-                        }
+                            {
+                                auto dividend_hi = emit_load_reg_tmp(op_size::U_32, cpu_reg::EDX);
+                                masm.Orr(dividend.x(), dividend.x(),
+                                         vixl::aarch64::Operand(dividend_hi.x(), vixl::aarch64::Shift::LSL, 32));
+                            }
+                        } else if (instr.operands[0].size == 16) {
+                            emit_load_reg(op_size::U_16, dividend, cpu_reg::EAX);
+
+                            {
+                                auto dividend_hi = emit_load_reg_tmp(op_size::U_16, cpu_reg::EDX);
+                                masm.Orr(dividend.x(), dividend.x(),
+                                         vixl::aarch64::Operand(dividend_hi.x(), vixl::aarch64::Shift::LSL, 16));
+                            }
+                        } else if (instr.operands[0].size == 8) {
+                            emit_load_reg(op_size::U_16, dividend, cpu_reg::EAX);
+                        } else
+                            throw std::exception();
 
                         auto quotient = get_tmp_reg();
                         masm.Udiv(quotient.x(), dividend.x(), divisor.x());
 
-                        masm.Tst(quotient.x(), 0xffffffff00000000ULL);
+                        masm.Tst(quotient.x(), ((1ULL << instr.operands[0].size) - 1) << instr.operands[0].size);
                         masm.B(vixl::aarch64::Condition::ne, &call_de);
 
                         // now compute the remainder
@@ -621,8 +695,18 @@ namespace uwin {
 
                         masm.Msub(rem.x(), quotient.x(), divisor.x(), dividend.x());
 
-                        emit_store_reg(op_size::U_32, quotient, cpu_reg::EAX);
-                        emit_store_reg(op_size::U_32, rem, cpu_reg::EDX);
+                        if (instr.operands[0].size == 32) {
+                            emit_store_reg(op_size::U_32, quotient, cpu_reg::EAX);
+                            emit_store_reg(op_size::U_32, rem, cpu_reg::EDX);
+                        } else if (instr.operands[0].size == 16) {
+                            emit_store_reg(op_size::U_16, quotient, cpu_reg::EAX);
+                            emit_store_reg(op_size::U_16, rem, cpu_reg::EDX);
+                        } else if (instr.operands[0].size == 8) {
+                            masm.Orr(quotient.w(), quotient.w(),
+                                    vixl::aarch64::Operand(rem.w(), vixl::aarch64::Shift::LSL, 8));
+                            emit_store_reg(op_size::U_16, quotient, cpu_reg::EAX);
+                        } else
+                            throw std::exception();
                     }
                         break;
                     case ZYDIS_MNEMONIC_IDIV: {
@@ -951,7 +1035,7 @@ namespace uwin {
                         auto amnt = emit_load_operand_tmp(op_size::U_8, instr.operands[1]);
                         auto res = get_tmp_reg();
 
-                        masm.And(amnt.w(), amnt.w(), instr.operands[0].size - 1); // a bit of bit magic
+                        masm.And(amnt.w(), amnt.w(), 31);
 
                         masm.Lsr(res.w(), val.w(), amnt.w());
 
@@ -961,11 +1045,11 @@ namespace uwin {
                     }
                         break;
                     case ZYDIS_MNEMONIC_SAR: {
-                        auto val = emit_load_operand_tmp(zydis_op_size(instr.operands[0]), instr.operands[0]);
+                        auto val = emit_load_operand_tmp(zydis_op_size<true>(instr.operands[0]), instr.operands[0]);
                         auto amnt = emit_load_operand_tmp(op_size::U_8, instr.operands[1]);
                         auto res = get_tmp_reg();
 
-                        masm.And(amnt.w(), amnt.w(), instr.operands[0].size - 1); // a bit of bit magic
+                        masm.And(amnt.w(), amnt.w(), 31);
 
                         masm.Asr(res.w(), val.w(), amnt.w());
 
@@ -980,11 +1064,63 @@ namespace uwin {
                         auto amnt = emit_load_operand_tmp(op_size::U_8, instr.operands[1]);
                         auto res = get_tmp_reg();
 
-                        masm.And(amnt.w(), amnt.w(), instr.operands[0].size - 1); // a bit of bit magic
+                        masm.And(amnt.w(), amnt.w(), 31);
 
                         masm.Lsl(res.w(), val.w(), amnt.w());
 
                         emit_update_flags(zydis_op_size(instr.operands[0]), arith_op::shl, res, val, amnt);
+
+                        emit_store_operand(res, instr.operands[0]);
+                    }
+                        break;
+
+                    case ZYDIS_MNEMONIC_ROL: {
+                        auto val = emit_load_operand_tmp(zydis_op_size(instr.operands[0]), instr.operands[0]);
+                        auto amnt = emit_load_operand_tmp(op_size::U_8, instr.operands[1]);
+                        auto res = get_tmp_reg();
+
+                        masm.And(amnt.w(), amnt.w(), 31);
+
+                        auto amnt_mod_sz = get_tmp_reg();
+                        masm.And(amnt_mod_sz.w(), amnt.w(), instr.operands[0].size - 1); // a bit of bit magic
+
+                        masm.Lsl(res.w(), val.w(), amnt_mod_sz.w());
+
+                        {
+                            auto tmp = emit_load_imm_tmp(instr.operands[0].size);
+                            masm.Sub(tmp.w(), tmp.w(), amnt_mod_sz.w());
+                            masm.Lsr(tmp.w(), val.w(), tmp.w());
+                            masm.Orr(res.w(), res.w(), tmp.w());
+                        }
+
+                        emit_update_flags(zydis_op_size(instr.operands[0]), arith_op::rol, res, val, amnt);
+
+                        emit_store_operand(res, instr.operands[0]);
+                    }
+                        break;
+
+                    case ZYDIS_MNEMONIC_ROR:
+                    {
+                        auto val = emit_load_operand_tmp(zydis_op_size(instr.operands[0]), instr.operands[0]);
+                        auto amnt = emit_load_operand_tmp(op_size::U_8, instr.operands[1]);
+                        auto res = get_tmp_reg();
+
+                        masm.And(amnt.w(), amnt.w(), 31);
+
+                        auto amnt_mod_sz = get_tmp_reg();
+                        masm.And(amnt_mod_sz.w(), amnt.w(), instr.operands[0].size - 1); // a bit of bit magic
+
+                        masm.Lsr(res.w(), val.w(), amnt_mod_sz.w());
+
+                        {
+                            auto tmp = emit_load_imm_tmp(instr.operands[0].size);
+                            masm.Sub(tmp.w(), tmp.w(), amnt_mod_sz.w());
+                            masm.Lsl(tmp.w(), val.w(), tmp.w());
+                            masm.Orr(res.w(), res.w(), tmp.w());
+                        }
+
+
+                        emit_update_flags(zydis_op_size(instr.operands[0]), arith_op::ror, res, val, amnt);
 
                         emit_store_operand(res, instr.operands[0]);
                     }
@@ -1122,10 +1258,16 @@ namespace uwin {
                     }
                         break;
                     case ZYDIS_MNEMONIC_SCASB: {
-                        assert(instr.attributes & ZYDIS_ATTRIB_HAS_REPNE);
+                        assert(instr.attributes & ZYDIS_ATTRIB_HAS_REPNE || instr.attributes & ZYDIS_ATTRIB_HAS_REPE);
+                        if (instr.attributes & ZYDIS_ATTRIB_HAS_REPNE)
                         {
                             register_saver_scope saver(*this);
                             masm.CallRuntime(repne_scas_runtime_helper < uint8_t > );
+                        } else if (instr.attributes & ZYDIS_ATTRIB_HAS_REPE) {
+                            register_saver_scope saver(*this);
+                            masm.CallRuntime(repe_scas_runtime_helper < uint8_t > );
+                        } else {
+                            throw std::exception();
                         }
 
                         auto tmp = emit_load_reg_tmp(op_size::U_32, cpu_reg::EDI);
@@ -1140,10 +1282,16 @@ namespace uwin {
                     }
                         break;
                     case ZYDIS_MNEMONIC_SCASW: {
-                        assert(instr.attributes & ZYDIS_ATTRIB_HAS_REPNE);
+                        assert(instr.attributes & ZYDIS_ATTRIB_HAS_REPNE || instr.attributes & ZYDIS_ATTRIB_HAS_REPE);
+                        if (instr.attributes & ZYDIS_ATTRIB_HAS_REPNE)
                         {
                             register_saver_scope saver(*this);
                             masm.CallRuntime(repne_scas_runtime_helper < uint16_t > );
+                        } else if (instr.attributes & ZYDIS_ATTRIB_HAS_REPE) {
+                            register_saver_scope saver(*this);
+                            masm.CallRuntime(repe_scas_runtime_helper < uint16_t > );
+                        } else {
+                            throw std::exception();
                         }
 
                         auto tmp = emit_load_reg_tmp(op_size::U_32, cpu_reg::EDI);
@@ -1158,10 +1306,16 @@ namespace uwin {
                     }
                         break;
                     case ZYDIS_MNEMONIC_SCASD: {
-                        assert(instr.attributes & ZYDIS_ATTRIB_HAS_REPNE);
+                        assert(instr.attributes & ZYDIS_ATTRIB_HAS_REPNE || instr.attributes & ZYDIS_ATTRIB_HAS_REPE);
+                        if (instr.attributes & ZYDIS_ATTRIB_HAS_REPNE)
                         {
                             register_saver_scope saver(*this);
                             masm.CallRuntime(repne_scas_runtime_helper < uint32_t > );
+                        } else if (instr.attributes & ZYDIS_ATTRIB_HAS_REPE) {
+                            register_saver_scope saver(*this);
+                            masm.CallRuntime(repe_scas_runtime_helper < uint32_t > );
+                        } else {
+                            throw std::exception();
                         }
 
                         auto tmp = emit_load_reg_tmp(op_size::U_32, cpu_reg::EDI);
@@ -1273,21 +1427,87 @@ namespace uwin {
                     }
                         break;
 
-                    default:
+                    case ZYDIS_MNEMONIC_PUSHFD:
+                    {
+                        auto eflags = emit_load_reg_tmp(op_size::U_32, cpu_reg::EFLAGS);
+
+                        auto esp = emit_load_reg_tmp(op_size::U_32, cpu_reg::ESP);
+                        masm.Sub(esp.w(), esp.w(), 4);
+
+                        emit_store_memory(op_size::U_32, eflags, cpu_segment::SS, esp);
+
+                        emit_store_reg(op_size::U_32, esp, cpu_reg::ESP);
+                    }
+                        break;
+
+                    case ZYDIS_MNEMONIC_POPFD:
+                    {
+                        {
+                            auto esp = emit_load_reg_tmp(op_size::U_32, cpu_reg::ESP);
+
+                            auto new_eflags = emit_load_memory_tmp(op_size::U_32, cpu_segment::SS, esp);
+
+                            masm.Add(esp.w(), esp.w(), 4);
+
+                            emit_store_reg(op_size::U_32, esp, cpu_reg::ESP);
+                            emit_store_reg(op_size::U_32, new_eflags, cpu_reg::EFLAGS);
+                        }
+                        register_saver_scope saver(*this);
+                        masm.CallRuntime(check_flags_helper);
+                    }
+                        break;
+
+                    case ZYDIS_MNEMONIC_CPUID:
+                    {
+                        register_saver_scope saver(*this);
+                        masm.CallRuntime(cpuid_helper);
+                    }
+                        break;
+
+                    case ZYDIS_MNEMONIC_BSF:
+                    {
+                        auto src = emit_load_operand_tmp(zydis_op_size(instr.operands[1]), instr.operands[1]);
+                        auto tmp = get_tmp_reg();
+                        masm.Rbit(tmp.w(), src.w());
+                        masm.Clz(tmp.w(), tmp.w());
+                        masm.Tst(tmp.w(), 0xffffff20);
+                        auto tmp_flags = get_tmp_reg();
+                        masm.Csel(tmp_flags.w(), 0, F_ZF, vixl::aarch64::eq);
+                        emit_store_operand(tmp, instr.operands[0]);
+
+                        emit_load_reg(op_size::U_32, tmp, cpu_reg::EFLAGS);
+                        masm.And(tmp.w(), tmp.w(), ~(uint32_t)F_ZF);
+                        masm.Orr(tmp.w(), tmp.w(), tmp_flags.w());
+                        emit_store_reg(op_size::U_32, tmp, cpu_reg::EFLAGS);
+                    }
+                        break;
+
+                    default: {
                         dump_generated_code();
                         uw_log("Unknown instruction\n");
+                        ZydisFormatter fmt;
+                        ZydisFormatterInit(&fmt, ZYDIS_FORMATTER_STYLE_ATT);
+                        char buffer[256];
+                        uint32_t addr = current_guest_eip - instr.length;
+                        ZydisFormatterFormatInstruction(&fmt, &instr, buffer, sizeof(buffer), addr);
+                        uw_log("%08x: %s\n", (unsigned)addr, buffer);
+
                         throw std::exception();
+                    }
                 }
             }
 
 #ifdef UW_USE_JITFIX
-            if (!changes_eip(instr) || (instr.mnemonic == ZYDIS_MNEMONIC_INT))
-                emit_store_reg(op_size::U_32, emit_load_imm_tmp(guest_eip), cpu_reg::EIP);
-
-            return false; // always build basic blocks of one instruction
-#else
-            return !changes_eip(instr) || (instr.mnemonic == ZYDIS_MNEMONIC_INT);
+            force_terminate_block = true;
 #endif
+
+            if (force_terminate_block) {
+                if (!changes_eip(instr) || (instr.mnemonic == ZYDIS_MNEMONIC_INT))
+                    emit_store_reg(op_size::U_32, emit_load_imm_tmp(guest_eip), cpu_reg::EIP);
+
+                return false; // always build basic blocks of one instruction
+            } else
+                return !changes_eip(instr) || (instr.mnemonic == ZYDIS_MNEMONIC_INT);
         }
 
         xmem_piece aarch64_code_generator::commit() {
@@ -1423,7 +1643,20 @@ namespace uwin {
                     break;
 
                 case ZYDIS_OPERAND_TYPE_REGISTER:
-                    if (!zydis_is_highreg(operand.reg.value)) {
+                    if (zydis_is_seg(operand.reg.value)) {
+                        uint16_t val;
+                        switch (zydis_seg(operand.reg.value)) {
+                            case cpu_segment::CS: val = __USER_CS; break;
+                            case cpu_segment::DS: val = __USER_DS; break;
+                            case cpu_segment::ES: val = __USER_DS; break;
+                            case cpu_segment::SS: val = __USER_DS; break;
+                            case cpu_segment::FS: val = __USER_FS; break;
+                            case cpu_segment::GS: val = __USER_GS; break;
+                            default:
+                                throw std::exception();
+                        }
+                        emit_load_imm(dst, val);
+                    } else if (!zydis_is_highreg(operand.reg.value)) {
                         emit_load_reg(sz, dst, zydis_reg(operand.reg.value));
                     } else {
                         // hack for the ah, bh, ch and dh
@@ -1453,7 +1686,24 @@ namespace uwin {
         void aarch64_code_generator::emit_store_operand(const tmp_holder& src, const ZydisDecodedOperand& operand) {
             switch (operand.type) {
                 case ZYDIS_OPERAND_TYPE_REGISTER:
-                    if (!zydis_is_highreg(operand.reg.value))
+                    if (zydis_is_seg(operand.reg.value)) {
+                        uint16_t val;
+                        switch (zydis_seg(operand.reg.value)) {
+                            case cpu_segment::CS: val = __USER_CS; break;
+                            case cpu_segment::DS: val = __USER_DS; break;
+                            case cpu_segment::ES: val = __USER_DS; break;
+                            case cpu_segment::SS: val = __USER_DS; break;
+                            case cpu_segment::FS: val = __USER_FS; break;
+                            case cpu_segment::GS: val = __USER_GS; break;
+                            default:
+                                throw std::exception();
+                        }
+                        masm.Cmp(src.w(), val);
+                        vixl::aarch64::Label skip;
+                        masm.B(vixl::aarch64::Condition::eq, &skip);
+                        emit_interrupt(0);
+                        masm.Bind(&skip);
+                    } else if (!zydis_is_highreg(operand.reg.value))
                         emit_store_reg(zydis_op_size(operand), src, zydis_reg(operand.reg.value));
                     else {
                         // hack for the ah, bh, ch and dh
@@ -1722,9 +1972,12 @@ namespace uwin {
                     // PF and AF are not implemented
             );
 
+            if (op == arith_op::rol || op == arith_op::ror)
+                upd_mask |= ~(F_CF | F_OF);
+
             vixl::aarch64::Label skip_all;
 
-            if (op == arith_op::shr || op == arith_op::shl || op == arith_op::sar) {
+            if (op == arith_op::shr || op == arith_op::shl || op == arith_op::sar || op == arith_op::rol || op == arith_op::ror) {
                 masm.Cbz(src2.w(), &skip_all); // shift with zero amount does not really modify flags
             }
 
@@ -1738,7 +1991,6 @@ namespace uwin {
             }
 
             auto upd_flags = get_tmp_reg();
-
 
             uint32_t sign_mask;
             uint64_t sign_mul_mask;
@@ -1778,112 +2030,122 @@ namespace uwin {
                     throw std::exception();
             }
 
-            // set the general flags
-            if (size == op_size::U_32) {
-                // full-size. nzcv can be used
-                auto nzcv = get_tmp_reg();
-                masm.Mrs(nzcv.x(), vixl::aarch64::SystemRegister::NZCV);
+            if (op != arith_op::rol && op != arith_op::ror) {
+                // set the general flags
+                if (size == op_size::U_32) {
+                    // full-size. nzcv can be used
+                    auto nzcv = get_tmp_reg();
+                    masm.Mrs(nzcv.x(), vixl::aarch64::SystemRegister::NZCV);
 
-                // PF and AF are not implemented
+                    // PF and AF are not implemented
 
-                bool need_c_invert = op == arith_op::sub;
+                    bool need_c_invert = op == arith_op::sub;
 
-                auto table_reg = get_tmp_reg();
-                if (need_c_invert)
-                    masm.Ldr(table_reg.x(), reinterpret_cast<uint64_t>(inverted_c_flag_table));
-                else
-                    masm.Ldr(table_reg.x(), reinterpret_cast<uint64_t>(flag_table));
+                    auto table_reg = get_tmp_reg();
+                    if (need_c_invert)
+                        masm.Ldr(table_reg.x(), reinterpret_cast<uint64_t>(inverted_c_flag_table));
+                    else
+                        masm.Ldr(table_reg.x(), reinterpret_cast<uint64_t>(flag_table));
 
-                masm.Asr(nzcv.x(), nzcv.x(), 28);
-                masm.Ldr(upd_flags.w(),
-                         vixl::aarch64::MemOperand(table_reg.x(), nzcv.x(), vixl::aarch64::Shift::LSL, 2));
+                    masm.Asr(nzcv.x(), nzcv.x(), 28);
+                    masm.Ldr(upd_flags.w(),
+                             vixl::aarch64::MemOperand(table_reg.x(), nzcv.x(), vixl::aarch64::Shift::LSL, 2));
 
-                if (op == arith_op::inc || op == arith_op::dec)
-                    // those don't update CF. Because Intel
-                    masm.And(upd_flags.w(), upd_flags.w(), ~F_CF);
-            } else {
-                // smaller size. Need to simulate most flags
-                // ZF
-                masm.Tst(dst.w(), val_mask);
-                masm.Csel(upd_flags.w(), F_ZF, 0, vixl::aarch64::Condition::eq);
+                    if (op == arith_op::inc || op == arith_op::dec)
+                        // those don't update CF. Because Intel
+                        masm.And(upd_flags.w(), upd_flags.w(), ~F_CF);
+                } else {
+                    // smaller size. Need to simulate most flags
+                    // ZF
+                    masm.Tst(dst.w(), val_mask);
+                    masm.Csel(upd_flags.w(), F_ZF, 0, vixl::aarch64::Condition::eq);
 
-                // SF
-                masm.Tst(dst.w(), sign_mask);
-                auto tmp_flags = get_tmp_reg();
-                masm.Csel(tmp_flags.w(), F_SF, 0, vixl::aarch64::ne);
-                masm.Orr(upd_flags.w(), upd_flags.w(), tmp_flags.w());
+                    // SF
+                    masm.Tst(dst.w(), sign_mask);
+                    auto tmp_flags = get_tmp_reg();
+                    masm.Csel(tmp_flags.w(), F_SF, 0, vixl::aarch64::ne);
+                    masm.Orr(upd_flags.w(), upd_flags.w(), tmp_flags.w());
 
-                if (op == arith_op::sub || op == arith_op::add || op == arith_op::inc || op == arith_op::dec) {
-                    // detect overflow
-                    auto of_tmp = get_tmp_reg();
-                    if (op == arith_op::sub || op == arith_op::add) {
-                        // sign was same (for add) or different (for sub)
-                        masm.Eor(of_tmp.w(), src1.w(), src2.w());
-                        vixl::aarch64::Label skip;
-                        if (op == arith_op::add)
-                            masm.Tbnz(of_tmp.w(), sign_pos, &skip);
-                        else if (op == arith_op::sub)
-                            masm.Tbz(of_tmp.w(), sign_pos, &skip);
-                        else
+                    if (op == arith_op::sub || op == arith_op::add || op == arith_op::inc || op == arith_op::dec) {
+                        // detect overflow
+                        auto of_tmp = get_tmp_reg();
+                        if (op == arith_op::sub || op == arith_op::add) {
+                            // sign was same (for add) or different (for sub)
+                            masm.Eor(of_tmp.w(), src1.w(), src2.w());
+                            vixl::aarch64::Label skip;
+                            if (op == arith_op::add)
+                                masm.Tbnz(of_tmp.w(), sign_pos, &skip);
+                            else if (op == arith_op::sub)
+                                masm.Tbz(of_tmp.w(), sign_pos, &skip);
+                            else
+                                throw std::exception();
+
+                            // but has changed
+                            masm.Eor(of_tmp.w(), src1.w(), dst.w());
+                            masm.Tst(of_tmp.w(), sign_mask);
+
+                            masm.Csel(tmp_flags.w(), F_OF, 0, vixl::aarch64::ne); // sign changed
+
+                            masm.Bind(&skip);
+                        } else if (op == arith_op::inc) {
+                            vixl::aarch64::Label skip;
+                            masm.Tbnz(src1.w(), sign_pos, &skip);
+                            masm.Tbz(dst.w(), sign_pos, &skip);
+
+                            masm.Mov(tmp_flags.w(), F_OF); // sign changed from positive to negative
+
+                            masm.Bind(&skip);
+                        } else if (op == arith_op::dec) {
+                            vixl::aarch64::Label skip;
+                            masm.Tbz(src1.w(), sign_pos, &skip);
+                            masm.Tbnz(dst.w(), sign_pos, &skip);
+
+                            masm.Mov(tmp_flags.w(), F_OF); // sign changed from negative to positive
+
+                            masm.Bind(&skip);
+                        } else
                             throw std::exception();
+                        masm.Orr(upd_flags.w(), upd_flags.w(), tmp_flags.w());
+                    }
 
-                        // but has changed
-                        masm.Eor(of_tmp.w(), src1.w(), dst.w());
-                        masm.Tst(of_tmp.w(), sign_mask);
-
-                        masm.Csel(tmp_flags.w(), F_OF, 0, vixl::aarch64::ne); // sign changed
-
-                        masm.Bind(&skip);
-                    } else if (op == arith_op::inc) {
+                    if (op == arith_op::sub || op == arith_op::add) {
+                        // detect carry/borrow
                         vixl::aarch64::Label skip;
-                        masm.Tbnz(src1.w(), sign_pos, &skip);
-                        masm.Tbz(dst.w(), sign_pos, &skip);
+                        masm.Tbz(dst.w(), sign_pos + 1, &skip);
 
-                        masm.Mov(tmp_flags.w(), F_OF); // sign changed from positive to negative
-
-                        masm.Bind(&skip);
-                    } else if (op == arith_op::dec) {
-                        vixl::aarch64::Label skip;
-                        masm.Tbz(src1.w(), sign_pos, &skip);
-                        masm.Tbnz(dst.w(), sign_pos, &skip);
-
-                        masm.Mov(tmp_flags.w(), F_OF); // sign changed from negative to positive
+                        masm.Mov(tmp_flags.w(), F_CF);
 
                         masm.Bind(&skip);
-                    } else
-                        throw std::exception();
-                    masm.Orr(upd_flags.w(), upd_flags.w(), tmp_flags.w());
+                        masm.Orr(upd_flags.w(), upd_flags.w(), tmp_flags.w());
+                    }
                 }
-
-                if (op == arith_op::sub || op == arith_op::add) {
-                    // detect carry/borrow
-                    vixl::aarch64::Label skip;
-                    masm.Tbz(dst.w(), sign_pos + 1, &skip);
-
-                    masm.Mov(tmp_flags.w(), F_CF);
-
-                    masm.Bind(&skip);
-                    masm.Orr(upd_flags.w(), upd_flags.w(), tmp_flags.w());
-                }
+            } else {
+                emit_load_imm(upd_flags, 0);
             }
 
 
             auto flags_reg = emit_load_reg_tmp(op_size::U_32, cpu_reg::EFLAGS);
 
             // handle instruction quirks
-            if (op == arith_op::shr || op == arith_op::shl || op == arith_op::sar) {
+            if (op == arith_op::shr || op == arith_op::shl || op == arith_op::sar || op == arith_op::rol || op == arith_op::ror) {
                 // detect shifted-out bit and put it to CF
-                auto sh = emit_load_imm_tmp(1);
-                auto shamt = get_tmp_reg();
-                if (op == arith_op::shr || op == arith_op::sar)
-                    masm.Sub(shamt.w(), src2.w(), 1);
-                else if (op == arith_op::shl) {
-                    emit_load_imm(shamt, bitsize);
-                    masm.Sub(shamt.w(), shamt.w(), src2.w());
-                } else
-                    throw std::exception();
-                masm.Lsl(sh.w(), sh.w(), shamt.w());
-                masm.Tst(src1.w(), sh.w());
+                if (op == arith_op::rol) {
+                    masm.Tst(dst.w(), 1);
+                } else if (op == arith_op::ror) {
+                    masm.Tst(dst.w(), sign_mask);
+                } else {
+                    auto sh = emit_load_imm_tmp(1);
+                    auto shamt = get_tmp_reg();
+                    if (op == arith_op::shr || op == arith_op::sar)
+                        masm.Sub(shamt.w(), src2.w(), 1);
+                    else if (op == arith_op::shl) {
+                        emit_load_imm(shamt, bitsize);
+                        masm.Sub(shamt.w(), shamt.w(), src2.w());
+                    } else
+                        throw std::exception();
+                    masm.Lsl(sh.w(), sh.w(), shamt.w());
+                    masm.Tst(src1.w(), sh.w());
+                }
                 vixl::aarch64::Label skip;
                 masm.B(vixl::aarch64::Condition::eq, &skip);
 
@@ -1914,6 +2176,24 @@ namespace uwin {
 
                 masm.Orr(upd_flags.w(), upd_flags.w(), F_OF);
 
+                masm.Bind(&skip);
+            }
+            if (op == arith_op::rol) {
+                // set OF
+                vixl::aarch64::Label skip;
+                auto tmp = get_tmp_reg();
+                masm.Eor(tmp.w(), dst.w(), vixl::aarch64::Operand(dst.w(), vixl::aarch64::Shift::LSL, sign_pos));
+                masm.Tbz(tmp.w(), sign_pos, &skip);
+                masm.Orr(upd_flags.w(), upd_flags.w(), F_OF);
+                masm.Bind(&skip);
+            }
+            if (op == arith_op::ror) {
+                // set OF
+                vixl::aarch64::Label skip;
+                auto tmp = get_tmp_reg();
+                masm.Eor(tmp.w(), dst.w(), vixl::aarch64::Operand(dst.w(), vixl::aarch64::Shift::LSL, 1));
+                masm.Tbz(tmp.w(), sign_pos, &skip);
+                masm.Orr(upd_flags.w(), upd_flags.w(), F_OF);
                 masm.Bind(&skip);
             }
 
@@ -1950,7 +2230,7 @@ namespace uwin {
             }
 
             if (op == arith_op::mul) {
-                masm.Tst(dst.x(), 0xffffffff00000000ULL);
+                masm.Tst(dst.x(), (uint64_t)val_mask << bitsize);
                 auto tmp = get_tmp_reg();
                 masm.Csel(tmp.w(), 0, F_CF | F_OF, vixl::aarch64::eq);
                 masm.Orr(upd_flags.w(), upd_flags.w(), tmp.w());

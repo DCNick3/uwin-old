@@ -223,3 +223,6 @@ void uw_cpu_loop(void* cpu_context) {
 
     uw_log("%lu %lu %lu\n", (unsigned long)start, (unsigned long)now, (unsigned long)cycle_count);
 }
+
+
+void uw_break_cpu_loop(void) {}

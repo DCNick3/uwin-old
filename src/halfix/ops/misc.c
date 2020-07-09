@@ -22,7 +22,7 @@ void cpuid(void)
 #ifdef CORE_DUO_SUPPORT
             thread_cpu.reg32[EAX] = 10;
 #else
-        halfix.reg32[EAX] = 2; // Windows NT doesn't like big CPU levels!
+            thread_cpu.reg32[EAX] = 2; // Windows NT doesn't like big CPU levels!
 #endif
             thread_cpu.reg32[ECX] = 0x6c65746e;
             thread_cpu.reg32[EDX] = 0x49656e69;
@@ -30,38 +30,38 @@ void cpuid(void)
         break;
     case 1:
 #ifdef P4_SUPPORT
-        halfix.reg32[EAX] = 0x00000f12;
-        halfix.reg32[ECX] = 0;
-        halfix.reg32[EDX] = 0x1febfbff | cpu_apic_connected() << 9;
-        halfix.reg32[EBX] = 0x00010800;
+            thread_cpu.reg32[EAX] = 0x00000f12;
+            thread_cpu.reg32[ECX] = 0;
+            thread_cpu.reg32[EDX] = 0x1febfbff | cpu_apic_connected() << 9;
+            thread_cpu.reg32[EBX] = 0x00010800;
 #elif defined(CORE_DUO_SUPPORT)
             thread_cpu.reg32[EAX] = 0x000006EC;
             thread_cpu.reg32[ECX] = 0xC189;
             thread_cpu.reg32[EDX] = 0x9febf9ff | cpu_apic_connected() << 9;
             thread_cpu.reg32[EBX] = 0x00010800;
 #else
-        halfix.reg32[EAX] = 0x000006a0;
-        halfix.reg32[ECX] = 0;
-        halfix.reg32[EDX] = 0x1842c1bf | cpu_apic_connected() << 9;
-        halfix.reg32[EBX] = 0x00010000;
+            thread_cpu.reg32[EAX] = 0x000006a0;
+            thread_cpu.reg32[ECX] = 0;
+            thread_cpu.reg32[EDX] = 0x1842c1bf | cpu_apic_connected() << 9;
+            thread_cpu.reg32[EBX] = 0x00010000;
 #endif
         break;
     case 2:
 #ifdef P4_SUPPORT
-        halfix.reg32[EAX] = 0x665b5001;
-        halfix.reg32[ECX] = 0;
-        halfix.reg32[EDX] = 0x007a7040;
-        halfix.reg32[EBX] = 0;
+            thread_cpu.reg32[EAX] = 0x665b5001;
+            thread_cpu.reg32[ECX] = 0;
+            thread_cpu.reg32[EDX] = 0x007a7040;
+            thread_cpu.reg32[EBX] = 0;
 #elif defined(CORE_DUO_SUPPORT)
             thread_cpu.reg32[EAX] = 0x02b3b001;
             thread_cpu.reg32[ECX] = 0;
             thread_cpu.reg32[EDX] = 0x2c04307d;
             thread_cpu.reg32[EBX] = 0xF0;
 #else
-        halfix.reg32[EAX] = 0x00410601;
-        halfix.reg32[ECX] = 0;
-        halfix.reg32[EDX] = 0;
-        halfix.reg32[EBX] = 0;
+            thread_cpu.reg32[EAX] = 0x00410601;
+            thread_cpu.reg32[ECX] = 0;
+            thread_cpu.reg32[EDX] = 0;
+            thread_cpu.reg32[EBX] = 0;
 #endif
         break;
 #ifdef CORE_DUO_SUPPORT
@@ -117,8 +117,8 @@ void cpuid(void)
 #endif
     case 0x80000000:
 #ifdef P4_SUPPORT
-        halfix.reg32[EAX] = 0x80000004;
-        halfix.reg32[ECX] = halfix.reg32[EDX] = halfix.reg32[EBX] = 0;
+            thread_cpu.reg32[EAX] = 0x80000004;
+            thread_cpu.reg32[ECX] = halfix.reg32[EDX] = halfix.reg32[EBX] = 0;
 #else
             thread_cpu.reg32[EAX] = 0x80000008;
             thread_cpu.reg32[ECX] = thread_cpu.reg32[EDX] = thread_cpu.reg32[EBX] = 0;
@@ -130,8 +130,8 @@ void cpuid(void)
             thread_cpu.reg32[EBX] = 0;
             thread_cpu.reg32[ECX] = thread_cpu.reg32[EAX] = 0;
 #else
-        halfix.reg32[EBX] = 0;
-        halfix.reg32[ECX] = halfix.reg32[EDX] = halfix.reg32[EAX] = 0;
+            thread_cpu.reg32[EBX] = 0;
+            thread_cpu.reg32[ECX] = halfix.reg32[EDX] = halfix.reg32[EAX] = 0;
 #endif
         break;
     case 0x80000002 ... 0x80000004: {
@@ -155,10 +155,10 @@ void cpuid(void)
     }
     case 0x80000005: // TLB/cache information
 #ifndef CORE_DUO_SUPPORT
-        halfix.reg32[EAX] = 0x01ff01ff;
-        halfix.reg32[ECX] = 0x40020140;
-        halfix.reg32[EBX] = 0x01ff01ff;
-        halfix.reg32[EDX] = 0x40020140;
+            thread_cpu.reg32[EAX] = 0x01ff01ff;
+            thread_cpu.reg32[ECX] = 0x40020140;
+            thread_cpu.reg32[EBX] = 0x01ff01ff;
+            thread_cpu.reg32[EDX] = 0x40020140;
 #else
             thread_cpu.reg32[EAX] = 0;
             thread_cpu.reg32[ECX] = 0;
@@ -168,10 +168,10 @@ void cpuid(void)
         break;
     case 0x80000006: // TLB/cache information
 #ifndef CORE_DUO_SUPPORT
-        halfix.reg32[EAX] = 0;
-        halfix.reg32[ECX] = 0x02008140;
-        halfix.reg32[EBX] = 0x42004200;
-        halfix.reg32[EDX] = 0;
+            thread_cpu.reg32[EAX] = 0;
+            thread_cpu.reg32[ECX] = 0x02008140;
+            thread_cpu.reg32[EBX] = 0x42004200;
+            thread_cpu.reg32[EDX] = 0;
 #else
             thread_cpu.reg32[EAX] = 0;
             thread_cpu.reg32[ECX] = 0x08006040;
