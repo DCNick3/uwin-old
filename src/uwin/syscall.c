@@ -27,13 +27,11 @@
 
 #define g2h_n(addr) ( addr == 0 ? NULL : g2h(addr) )
 
-// what was qemu thunk code about, again?)
-int32_t uw_cpu_do_syscall(int num, uint32_t arg1,
-                          uint32_t arg2, uint32_t arg3, uint32_t arg4,
-                          uint32_t arg5, uint32_t arg6, uint32_t arg7,
-                          uint32_t arg8)
+static uint32_t real_do_syscall(int num, uint32_t arg1,
+                                uint32_t arg2, uint32_t arg3, uint32_t arg4,
+                                uint32_t arg5, uint32_t arg6, uint32_t arg7,
+                                uint32_t arg8)
 {
-    //qemu_log("%02d: syscall %x, %x\n", uw_current_thread_id, (unsigned)num, (unsigned)arg1);
     switch (num) {
         case SYSCALL_PANIC:
             uw_cpu_panic(g2h(arg1)); return 0;
@@ -181,7 +179,7 @@ int32_t uw_cpu_do_syscall(int num, uint32_t arg1,
         case SYSCALL_WAVE_ADD_BUFFER:
             uw_ui_wave_add_buffer(uw_ht_get_wave(arg1), g2h(arg2), arg3); return 0;
         */
-            
+
         case SYSCALL_WIN32_GET_MODULE_FILE_NAME:            return ldr_get_module_filename(arg1, g2h(arg2), arg3);
         case SYSCALL_WIN32_GET_MODULE_HANDLE:               return ldr_get_module_handle(g2h_n(arg1));
         case SYSCALL_WIN32_GET_PROC_ADDRESS:                return ldr_get_proc_address(arg1, g2h(arg2));
@@ -215,4 +213,18 @@ int32_t uw_cpu_do_syscall(int num, uint32_t arg1,
         default:
             uw_cpu_panic("Unknown syscall number"); return 0;
     }
+}
+
+int32_t uw_cpu_do_syscall(int num, uint32_t arg1,
+                          uint32_t arg2, uint32_t arg3, uint32_t arg4,
+                          uint32_t arg5, uint32_t arg6, uint32_t arg7,
+                          uint32_t arg8)
+{
+    uw_cpu_syscall_enter();
+
+    uint32_t res = real_do_syscall(num, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+
+    uw_cpu_syscall_exit();
+
+    return res;
 }

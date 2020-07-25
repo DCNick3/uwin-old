@@ -14,6 +14,7 @@
 #include "uwin/mem.h"
 
 #include <exception>
+#include <atomic>
 
 namespace uwin {
     namespace jit {
@@ -35,7 +36,7 @@ namespace uwin {
 
         enum class cpu_flags {
             CF = 0x1,
-            //PF = 0x4,
+            PF = 0x4,
             //AF = 0x10,
             ZF = 0x40,
             SF = 0x80,
@@ -76,7 +77,9 @@ namespace uwin {
             l,
             nl,
             le,
-            nle
+            nle,
+            c = b,
+            nc = nb,
         };
 
         class fpu_context : public libx87::fpu<fpu_context> {
@@ -159,6 +162,8 @@ namespace uwin {
 
             jptr host_dynamic_segment_bases[6] = { 0 };
 
+            volatile std::atomic_bool force_yield;
+
             cpu_static_context static_context;
 
             // pointer used here to allow to execute offsetof on the structure
@@ -202,6 +207,8 @@ namespace uwin {
             cpu_context(const cpu_context&) = delete;
             void operator=(const cpu_context&) = delete;
         };
+
+        static_assert(sizeof(bool) == 1, "bool size in not one byte");
 
         fpu_context::fpu_context(cpu_context &cpu_ctx)
             : cpu_ctx(cpu_ctx) {}

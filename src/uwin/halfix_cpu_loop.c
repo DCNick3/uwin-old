@@ -226,3 +226,5 @@ void uw_cpu_loop(void* cpu_context) {
 
 
 void uw_break_cpu_loop(void) {}
+void uw_cpu_syscall_enter(void) {}
+void uw_cpu_syscall_exit(void) {}

@@ -436,7 +436,7 @@ BOOL WINAPI TlsSetValue(DWORD dwIndex, LPVOID value) {
 }
 
 DWORD WINAPI GetCurrentThreadId() {
-    kprintf("GetCurrentThreadId()");
+    //kprintf("GetCurrentThreadId()");
     return (DWORD)get_teb_value(TEB_TID);
 }
 

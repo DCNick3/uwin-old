@@ -21,11 +21,9 @@ namespace uwin {
         class basic_block_compiler {
             uint32_t guest_address;
             uint8_t* host_address;
-            size_t block_size;
+            size_t block_size = 0;
             const cpu_static_context& ctx;
             C code_generator;
-
-            bool used_tmp_slots[6];
 
             basic_block_compiler(const cpu_static_context& ctx, uint32_t guest_address, uint8_t *host_address)
                     : ctx(ctx), guest_address(guest_address), host_address(host_address), code_generator(ctx) {}
@@ -49,10 +47,6 @@ namespace uwin {
 
         public:
 
-
-            inline void free_tmp(int slot) {
-                used_tmp_slots[slot] = false;
-            }
 
             inline basic_block compile() {
 
@@ -84,7 +78,9 @@ namespace uwin {
 
                 code_generator.emit_epilogue();
 
-                return basic_block(block_guest_address, block_size, std::move(code_generator.commit()));
+                auto out_pred = code_generator.get_branch_hints();
+
+                return basic_block(block_guest_address, block_size, std::move(code_generator.commit()), out_pred);
             }
 
             inline static basic_block compile(cpu_static_context& ctx, uint32_t guest_address) {
@@ -94,7 +90,7 @@ namespace uwin {
         };
 
         typedef aarch64_code_generator native_code_generator;
-        typedef basic_block_compiler<aarch64_code_generator> native_basic_block_compiler;
+        typedef basic_block_compiler<native_code_generator> native_basic_block_compiler;
 
     }
 }

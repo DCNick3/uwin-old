@@ -44,6 +44,10 @@ namespace uwin {
             mul,
             rol,
             ror,
+            shld,
+            shrd,
+            rcr,
+            bsf,
         };
 
         class aarch64_code_generator {
@@ -63,6 +67,9 @@ namespace uwin {
             std::unordered_set<uint32_t> normal_available_tmp_regs;
             std::unordered_set<uint32_t> float_available_tmp_regs;
             std::unordered_set<uint32_t> used_tmp_regs;
+
+            std::vector<uint32_t> out_predictions;
+            bool unreached_hint = false;
 
         public:
             class tmp_holder {
@@ -203,6 +210,7 @@ namespace uwin {
             void emit_load_seg(const tmp_holder& dst, cpu_segment seg);
             tmp_holder emit_load_seg_tmp(cpu_segment seg);
 
+            uint64_t get_imm_operand(op_size sz, const ZydisDecodedOperand &operand);
             void emit_load_operand(op_size sz, const tmp_holder& dst, const ZydisDecodedOperand& operand);
             tmp_holder emit_load_operand_tmp(op_size sz, const ZydisDecodedOperand& operand);
             void emit_store_operand(const tmp_holder& src, const ZydisDecodedOperand& operand);
@@ -238,6 +246,14 @@ namespace uwin {
                 uw_log("generated code dump: %s\n", ss.str().c_str());
             }
 
+            inline void hint_branch(uint32_t addr) {
+                out_predictions.emplace_back(addr);
+            }
+
+            inline void hint_block_unreached() {
+                unreached_hint = true;
+            }
+
         public:
             inline aarch64_code_generator(const cpu_static_context& ctx)
                 : ctx(ctx), masm(), start_label() {
@@ -256,6 +272,17 @@ namespace uwin {
             bool emit_instruction(uint32_t guest_eip, const ZydisDecodedInstruction& instr, bool force_terminate_block = false);
 
             xmem_piece commit();
+
+            inline const std::vector<uint32_t>& get_branch_hints() {
+                if (unreached_hint) {
+                    out_predictions.clear();
+                }
+                return out_predictions;
+            }
+
+            inline bool get_unreached_hint() {
+                return unreached_hint;
+            }
 
             inline void return_tmp_reg(int reg) {
                 if ((reg & register_kind_mask) == normal_register_mask) {

@@ -2,7 +2,7 @@
 #include "uwin/uwin.h"
 
 #include "uwin-jit/cpu_context.h"
-#include "uwin-jit/basic_block_cache.h"
+#include "uwin-jit/basic_block.h"
 
 #include <cassert>
 
@@ -92,6 +92,7 @@ static std::atomic_flag exec_lock = ATOMIC_FLAG_INIT;
 void uw_cpu_loop(void* context)
 {
     cpu_context* ctx = (cpu_context*)context;
+    basic_block* basic_block = nullptr;
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
     while (true) {
@@ -101,7 +102,10 @@ void uw_cpu_loop(void* context)
             uw_log("bonk\n");
         }
 
-        auto basic_block = get_native_basic_block(ctx->static_context, eip);
+        if (basic_block != nullptr)
+            basic_block = basic_block->get_native_basic_block_predicted(ctx->static_context, eip);
+        else
+            basic_block = get_native_basic_block(ctx->static_context, eip);
 
         while (exec_lock.test_and_set(std::memory_order_acquire))  // acquire lock
             ; // spin
@@ -119,4 +123,16 @@ void uw_cpu_loop(void* context)
 void uw_break_cpu_loop(void)
 {
     exec_lock.clear(std::memory_order_release);
+}
+
+void uw_cpu_syscall_enter(void)
+{
+    // we want to free execution lock to allow other threads to do stuff while syscall is running
+    exec_lock.clear(std::memory_order_release);
+}
+
+void uw_cpu_syscall_exit(void)
+{
+    while (exec_lock.test_and_set(std::memory_order_acquire))  // acquire lock
+        ; // spin
 }

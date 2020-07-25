@@ -3,6 +3,7 @@ import itertools
 
 TEST_MOV = True
 TEST_SHIFTS = True
+TEST_DSHIFTS = True
 TEST_INC = True
 TEST_ADD = True
 TEST_MUL = True
@@ -66,14 +67,33 @@ if TEST_SHIFTS:
     SHIFTS = [
         'shr', 'sar', 'shl',
         'rol',
-        'ror'
+        'ror',
+        'rcr',
     ]
     shift_amounts = range(0, 34)
     for shift in SHIFTS:
         emit_print("test shifts.%s" % shift)
-        for reg, amnt, val in itertools.product(BREGS + WREGS + DREGS, shift_amounts, bvals_many):
+        for reg, amnt, val in itertools.product(['al', 'ah', 'ax', 'eax'], shift_amounts, bvals_many):
             mkmovimm(reg, val)
             emit('%s $%d, %%%s' % (shift, amnt, reg))
+
+if TEST_DSHIFTS:
+    emit_print("test dshifts")
+    DSHIFTS = [
+        'shrd', 'shld',
+    ]
+    shift_amounts_32 = range(0, 32)
+    shift_amounts_16 = range(0, 16)
+    for dshift in DSHIFTS:
+        emit_print("test dshifts.%s" % dshift)
+        for amnt, val1, val2 in itertools.product(shift_amounts_16, wvals_many, wvals_many):
+            mkmovimm('ax', val1)
+            mkmovimm('bx', val2)
+            emit('%s $%d, %%%s, %%%s' % (dshift, amnt, 'ax', 'bx'))
+        for amnt, val1, val2 in itertools.product(shift_amounts_32, wvals_many, wvals_many):
+            mkmovimm('eax', val1 << 16)
+            mkmovimm('ebx', val2 << 16)
+            emit('%s $%d, %%eax, %%ebx' % (dshift, amnt))
 
 incbvals = [ 1, 2, 3, 12, 17, 0x63, 0x7f, 0x80, 0x81, 0xfe, 0xff ]
 incwvals = [ x << 8 for x in incbvals ]

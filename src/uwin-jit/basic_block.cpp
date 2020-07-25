@@ -84,8 +84,11 @@ extern "C" void mem_make_dirty(uint32_t addr, uint32_t size) {
 #define F_ZF static_cast<int>(uwin::jit::cpu_flags::ZF)
 #define F_CF static_cast<int>(uwin::jit::cpu_flags::CF)
 #define F_OF static_cast<int>(uwin::jit::cpu_flags::OF)
+#define F_PF static_cast<int>(uwin::jit::cpu_flags::PF)
 
-const uint32_t flag_used_mask = F_SF | F_ZF | F_CF | F_OF;
+const uint32_t flag_used_mask = F_SF | F_ZF | F_CF | F_OF
+        //| F_PF
+        ;
 const uint32_t flag_upd_mask = ~flag_used_mask;
 
 static void write_dt(void *ptr, unsigned long addr, unsigned long limit,
