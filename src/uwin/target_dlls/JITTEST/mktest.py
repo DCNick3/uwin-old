@@ -1,15 +1,17 @@
 
 import itertools
+import functools
 
-TEST_MOV = True
-TEST_SHIFTS = True
-TEST_DSHIFTS = True
-TEST_INC = True
-TEST_ADD = True
-TEST_MUL = True
-TEST_IMUL = True
-TEST_DIV = True
-TEST_BSF = True
+TEST_MOV = False
+TEST_SHIFTS = False
+TEST_DSHIFTS = False
+TEST_INC = False
+TEST_ADD = False
+TEST_MUL = False
+TEST_IMUL = False
+TEST_DIV = False
+TEST_BSF = False
+TEST_JCC = True
 
 DREGS = [ 'eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'esi', 'esp', 'ebp' ]
 WREGS = [ 'ax', 'bx', 'cx', 'dx', 'si', 'di', 'sp', 'bp' ]
@@ -208,6 +210,31 @@ if TEST_BSF:
     for val in dvals_many:
         mkmovimm('eax', val)
         emit('bsf %eax, %ebx')
+
+if TEST_JCC:
+    emit_print("test jcc")
+    # TODO: test flags set with arithmetics
+
+    CF = 0x1
+    PF = 0x4
+    ZF = 0x40
+    SF = 0x80
+    FLAG_MASKS = [CF, PF, ZF, SF]
+    JUMPS = ['o', 'no', 'b', 'nb', 'z', 'nz', 'be', 'nbe', 's', 'ns', 'p', 'np', 'l', 'nl', 'le', 'nle']
+    id = 0
+    for jump in JUMPS:
+        for flags in itertools.chain.from_iterable(itertools.combinations(FLAG_MASKS, x) for x in range(0, len(FLAG_MASKS))):
+            eflags = functools.reduce(lambda x, y: x | y, list(flags), 0)
+            emit("mov $%d, %%ah" % eflags)
+            emit("sahf")
+
+            label_name = "jcc_test_%d" % id
+            id += 1
+
+            emit("j%s %s" % (jump, label_name))
+            emit("nop")
+            emit("%s:" % label_name)
+
 
 
 emit("mov save_esp, %esp")

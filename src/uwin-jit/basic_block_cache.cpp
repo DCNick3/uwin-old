@@ -4,6 +4,7 @@
 
 #include "uwin-jit/basic_block_compiler.h"
 
+#include <fstream>
 #include <mutex>
 #include <unordered_map>
 
@@ -16,9 +17,8 @@ namespace uwin {
             return (cache[eip] = std::unique_ptr<basic_block>(new basic_block(std::move(native_basic_block_compiler::compile(ctx, eip))))).get();
         }
 
-        // this number was selected by fine-tuning on raspberry pi 3b+ in RelWithDebInfo configuration running game initialization until main menu
-        // (first shrd instruction)
-        static const int max_depth = 32;
+        // As much as possible
+        static const int max_depth = 512;
 
         static basic_block* get_native_basic_block_recur(cpu_static_context& ctx, uint32_t eip, int depth) {
             auto it = cache.find(eip);
@@ -38,9 +38,21 @@ namespace uwin {
             }
         }
 
+        void init_basic_block_cache() {
+            cache.clear();
+            cache.max_load_factor(0.01);
+            cache.reserve(100000);
+        }
+
         basic_block* get_native_basic_block(cpu_static_context& ctx, uint32_t eip) {
             return get_native_basic_block_recur(ctx, eip, 0);
         }
 
+        void dump_basic_blocks() {
+            std::ofstream f("basic_block_addresses.txt", std::ios::out);
+            for (const auto& p : cache) {
+                f << std::hex << p.first << std::endl;
+            }
+        }
     }
 }

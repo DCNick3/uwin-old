@@ -10,6 +10,9 @@
 #include "halfix/cpu/cpu.h"
 #include "halfix/cpu/libcpu.h"
 
+
+void uw_cpu_initialize() {}
+
 void* uw_cpu_alloc_context() {
     return uw_new0(struct cpu, 1);
 }

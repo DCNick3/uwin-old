@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="switch (1303b168-13a4-443f-baef-4ca2dcc45cb1)">
+    <serverData>
+      <paths name="rpi-aarch64 (a5d50da8-1842-444c-b01e-7e2f68144f4d)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/dcnick3/uwin/" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-release-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-trace-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-relwithdebinfo" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-debug-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-map-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-release-srpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-debug" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-release" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-relwithdebinfo-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-debug-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-homm3benchmark-relwithdebinfo-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-relwithdebinfo-srpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-homm3benchmark-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-homm3benchmark-relwithdebinfo-map-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-release-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-debug-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-relwithdebinfo-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-trace-debug-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-debug-oneinstr-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-release-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-map-debug-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-debug-rpi-aarch64" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="switch (1303b168-13a4-443f-baef-4ca2dcc45cb1)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/dcnick3/uwin" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-release-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-trace-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-debug-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-relwithdebinfo" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-debug-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-debug-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-release-srpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-release-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-debug" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-release" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-relwithdebinfo-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-debug" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-debug-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-relwithdebinfo-srpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-homm3benchmark-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-release-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-relwithdebinfo-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-relwithdebinfo-rpi-aarch64" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-debug-oneinstr-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-release-remote" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-halfix-debug-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jitfix-release-switch" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-jit-debug-rpi-aarch64" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

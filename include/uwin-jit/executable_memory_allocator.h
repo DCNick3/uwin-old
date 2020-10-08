@@ -24,10 +24,10 @@ namespace uwin {
         class xmem_piece {
             void *rw_pointer;
             void *rx_pointer;
-            size_t size;
+            size_t m_size;
         public:
             xmem_piece(size_t size)
-                : rw_pointer(xmem::alloc(size)), rx_pointer(rw_ptr() + xmem::executable_offset(rw_pointer)), size(size) {
+                : rw_pointer(xmem::alloc(size)), rx_pointer(rw_ptr() + xmem::executable_offset(rw_pointer)), m_size(size) {
             }
 
             xmem_piece(const xmem_piece& other) = delete;
@@ -36,7 +36,7 @@ namespace uwin {
             xmem_piece(xmem_piece&& other) {
                 rw_pointer = other.rw_pointer;
                 rx_pointer = other.rx_pointer;
-                size = other.size;
+                m_size = other.m_size;
 
                 other.rw_pointer = nullptr;
             }
@@ -55,6 +55,10 @@ namespace uwin {
                 return rx_pointer;
             }
 
+            inline size_t size() {
+                return this->m_size;
+            }
+
             inline void prepare_execute() {
 #ifdef __x86_64__
                 // nothing needed, x86 is happy with it as is =)
@@ -65,11 +69,11 @@ namespace uwin {
 #ifdef __linux__
                 // flush the performed write
                 auto start_ptr = reinterpret_cast<char*>(rw_ptr());
-                __clear_cache(start_ptr, start_ptr + size);
+                __clear_cache(start_ptr, start_ptr + m_size);
 
                 // flush the instruction cache
                 start_ptr = reinterpret_cast<char*>(rx_ptr());
-                __clear_cache(start_ptr, start_ptr + size);
+                __clear_cache(start_ptr, start_ptr + m_size);
 #else
 #error "Don't know what to do on this OS"
 #endif

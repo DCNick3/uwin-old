@@ -130,7 +130,7 @@ void uw_ui_initialize(int interactive) {
 
     interactive_mode = interactive != 0;
 
-    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "1");
+    //SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "1");
 
     if (interactive_mode) {
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {

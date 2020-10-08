@@ -8,8 +8,13 @@
 
 #include <iostream>
 
+#include <sys/time.h>
+
 using namespace uwin::jit;
 
+void uw_cpu_initialize() {
+    init_basic_block_cache();
+}
 
 void* uw_cpu_alloc_context()
 {
@@ -91,6 +96,12 @@ static std::atomic_flag exec_lock = ATOMIC_FLAG_INIT;
 
 void uw_cpu_loop(void* context)
 {
+#ifdef UW_JIT_BENCHMARK_HOMM3
+    struct timeval start_time;
+    struct timezone ignore;
+    gettimeofday(&start_time, &ignore);
+#endif
+
     cpu_context* ctx = (cpu_context*)context;
     basic_block* basic_block = nullptr;
 #pragma clang diagnostic push
@@ -99,8 +110,20 @@ void uw_cpu_loop(void* context)
         uint32_t eip = ctx->EIP();
 
         if (eip == 0x00626a9f) {
-            uw_log("bonk\n");
+            //uw_log("bonk\n");
         }
+
+#ifdef UW_JIT_BENCHMARK_HOMM3
+        if (eip == 0x4EE864) {
+            struct timeval end_time;
+            gettimeofday(&end_time, &ignore);
+
+            auto sec = end_time.tv_sec - start_time.tv_sec + (end_time.tv_usec - start_time.tv_usec) * 0.000001f;
+
+            fprintf(stderr, "homm3benchmark: %f secs elapsed\n", sec);
+            exit(0);
+        }
+#endif
 
         if (basic_block != nullptr)
             basic_block = basic_block->get_native_basic_block_predicted(ctx->static_context, eip);

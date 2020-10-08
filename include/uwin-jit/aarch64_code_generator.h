@@ -18,38 +18,6 @@ namespace uwin {
     namespace jit {
         class aarch64_code_generator;
 
-        enum class op_size {
-            U_8,
-            U_16,
-            U_32,
-            U_64,
-            S_8,
-            S_16,
-            S_32,
-            S_64,
-        };
-
-        enum class arith_op {
-            add,
-            sub,
-            or_,
-            and_,
-            xor_,
-            inc,
-            dec,
-            sar,
-            shr,
-            shl,
-            imul,
-            mul,
-            rol,
-            ror,
-            shld,
-            shrd,
-            rcr,
-            bsf,
-        };
-
         class aarch64_code_generator {
             const cpu_static_context& ctx;
             vixl::aarch64::MacroAssembler masm;
@@ -70,6 +38,8 @@ namespace uwin {
 
             std::vector<uint32_t> out_predictions;
             bool unreached_hint = false;
+
+            uint32_t current_f_type = 0xffffffff;
 
         public:
             class tmp_holder {
@@ -137,9 +107,11 @@ namespace uwin {
                 register_saver_scope& operator=(const register_saver_scope&) = delete;
 
             public:
-                inline register_saver_scope(aarch64_code_generator& gen)
+                inline register_saver_scope(aarch64_code_generator& gen, bool save_x0)
                         : gen(gen), save_list() {
                     save_list.emplace_back(gen.guest_base_reg());
+                    if (save_x0)
+                        save_list.emplace_back(vixl::aarch64::x0);
                     for (auto v : gen.used_tmp_regs) {
                         if ((v & register_kind_mask) == normal_register_mask)
                             save_list.emplace_back(vixl::aarch64::XRegister(v & register_code_mask));
@@ -192,9 +164,17 @@ namespace uwin {
 
             void emit_interrupt(int interrupt_number);
 
-            void emit_update_flags(op_size size, arith_op op, const tmp_holder& dst,
+            void emit_update_flags(op_size size, flags_op op, const tmp_holder& dst,
                                    const tmp_holder& src1, const tmp_holder& src2);
-            vixl::aarch64::Condition emit_test_flags(cpu_condition condition);
+
+            template<cpu_condition condition>
+            vixl::aarch64::Condition emit_test_condition();
+
+            template<cpu_condition>
+            void emit_conditional_jump(const ZydisDecodedInstruction& instr);
+
+            template<cpu_condition>
+            void emit_conditional_set(const ZydisDecodedInstruction& instr);
 
             void emit_load_sized(op_size sz, const tmp_holder& dst, vixl::aarch64::MemOperand mem_op);
             tmp_holder emit_load_sized_tmp(op_size sz, vixl::aarch64::MemOperand mem_op);
@@ -221,6 +201,9 @@ namespace uwin {
             void emit_load_memory(op_size sz, const tmp_holder& dst, cpu_segment segment, tmp_holder&& offset_register);
             tmp_holder emit_load_memory_tmp(op_size sz, cpu_segment segment, const tmp_holder& offset_register);
             void emit_store_memory(op_size sz, const tmp_holder& src, cpu_segment segment, const tmp_holder& offset_register);
+
+            void emit_sign_extend(op_size sz, const tmp_holder& dst, const tmp_holder& src);
+            void emit_sign_extend_word(op_size sz, const tmp_holder& dst, const tmp_holder& src);
 
             tmp_holder emit_load_effective_address_tmp(const ZydisDecodedOperand& mem_operand);
 

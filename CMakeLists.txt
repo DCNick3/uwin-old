@@ -7,6 +7,10 @@ set(CMAKE_CXX_STANDARD 11)
 option(USE_HALFIX "Use halfix for x86 cpu emulation" ON)
 option(USE_JIT "Use jit for cpu emulation" OFF)
 option(USE_JITFIX "Enable validation code for jit based on halfix" OFF)
+option(ENABLE_JIT_TRACE "Enable trace of JIT-compiled basic blocks" OFF)
+option(FORCE_ONE_INSTRUCTION_JIT_BLOCKS "Force jit basic blocks to execute only one instruction" OFF)
+option(JIT_BENCHMARK_HOMM3 "Run benchmark for homm3 (assumes that homm3 is launched)" OFF)
+option(JIT_GENERATE_PERF_MAP "Generate perf map file" OFF)
 
 include_directories(include)
 
@@ -135,7 +139,28 @@ endif()
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DUW_DEBUG)
     #add_definitions(-DUW_JIT_TRACE)
+    #add_definitions(-DUW_USE_GDB_JIT_INTERFACE)
 endif (CMAKE_BUILD_TYPE STREQUAL "Debug")
+
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+if (ENABLE_JIT_TRACE)
+    add_definitions(-DUW_JIT_TRACE)
+endif()
+
+if (FORCE_ONE_INSTRUCTION_JIT_BLOCKS)
+    add_definitions(-DUW_JIT_FORCE_ONE_INSTRUCTION_BLOCKS)
+endif()
+
+if (JIT_BENCHMARK_HOMM3)
+    add_definitions(-DUW_JIT_BENCHMARK_HOMM3)
+endif()
+
+if (JIT_GENERATE_PERF_MAP)
+    add_definitions(-DUW_JIT_GENERATE_PERF_MAP)
+endif()
 
 set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
 set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")

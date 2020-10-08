@@ -141,6 +141,7 @@ int32_t uw_cpu_do_syscall(int num, uint32_t arg1,
 
 
 // uw_cpu_loop stuff
+void uw_cpu_initialize();
 void* uw_cpu_alloc_context();
 void uw_cpu_free_context(void* cpu_context);
 void uw_cpu_panic(const char* message);

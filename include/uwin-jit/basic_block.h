@@ -9,6 +9,9 @@
 #include <algorithm>
 #include <atomic>
 #include <vector>
+#include <fstream>
+#include <sstream>
+#include <unistd.h>
 
 #include "cpu_context.h"
 
@@ -20,11 +23,30 @@
 
 namespace uwin {
     namespace jit {
+#ifdef UW_USE_GDB_JIT_INTERFACE
+        void gdb_jit_register_object(std::vector<uint8_t>& vector);
+#endif
+
         typedef cpu_context* (*basic_block_func)(cpu_context* ctx);
 
         class basic_block;
 
+        void init_basic_block_cache();
         basic_block* get_native_basic_block(cpu_static_context& ctx, uint32_t eip);
+
+#ifdef UW_JIT_GENERATE_PERF_MAP
+        class perf_map_writer {
+            std::ofstream file;
+        public:
+            perf_map_writer() : file("/tmp/perf-" + std::to_string(getpid()) + ".map", std::ios::out) {
+            }
+            void write_entry(size_t address, size_t size, std::string name) {
+                file << std::hex << address << " " << size << " " << name << std::endl;
+            }
+        };
+
+        extern perf_map_writer perf_map_writer_singleton;
+#endif
 
         class basic_block {
             uint32_t guest_address;
@@ -34,11 +56,18 @@ namespace uwin {
 
             std::vector<std::pair<std::uint32_t, basic_block*>> out_predictions;
 
+#ifdef UW_USE_GDB_JIT_INTERFACE
+            std::vector<std::uint8_t> gdb_jit_elf;
+
+            std::vector<std::uint8_t> make_gdb_elf();
+#endif
+
 #ifdef UW_USE_JITFIX
             void halfix_enter(cpu_context* ctx);
             void halfix_leave(cpu_context* ctx);
 #endif
         public:
+
             inline basic_block(uint32_t guest_address, uint32_t size, xmem_piece xmem, const std::vector<uint32_t> out_pred)
                 : guest_address(guest_address), size(size), xmem(std::move(xmem))
             {
@@ -46,6 +75,23 @@ namespace uwin {
                 for (auto addr : out_pred) {
                     out_predictions.emplace_back(addr, nullptr);
                 }
+#ifdef UW_USE_GDB_JIT_INTERFACE
+                gdb_jit_elf = make_gdb_elf();
+
+                /*std::stringstream file_name;
+                file_name << "basic_block_0x";
+                file_name << std::hex << guest_address;
+                file_name << ".elf";
+                std::ofstream outfile(file_name.str(), std::ios::out | std::ios::binary);
+                outfile.write(reinterpret_cast<const char*>(gdb_jit_elf.data()), gdb_jit_elf.size());*/
+
+                gdb_jit_register_object(gdb_jit_elf);
+#endif
+#ifdef UW_JIT_GENERATE_PERF_MAP
+                std::stringstream stream;
+                stream << std::hex << "uw_jit_bb_" << guest_address;
+                perf_map_writer_singleton.write_entry(reinterpret_cast<size_t>(this->xmem.rx_ptr()), this->xmem.size(), stream.str());
+#endif
             }
 
             inline void execute(cpu_context* ctx) {
@@ -58,8 +104,8 @@ namespace uwin {
 #endif
                 auto func = reinterpret_cast<basic_block_func>(xmem.rx_ptr());
 
-                if (guest_address == 0x010771cc) {
-                    uw_log("bonk\n");
+                if (guest_address == 0x00050c70b) {
+                    //uw_log("bonk\n");
                 }
 
                 func(ctx);

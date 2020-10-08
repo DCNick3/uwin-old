@@ -46,6 +46,7 @@ int main(int argc, char** argv)
     
     guest_base = uw_memory_map_initialize(); // reserve virtual memory
 
+    uw_cpu_initialize();
     uw_sem_initialize();
     uw_mut_initialize();
     uw_cond_initialize();
