@@ -2,10 +2,6 @@
 #ifndef UWIN_STR_H
 #define UWIN_STR_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stddef.h>
 
 char* uw_ascii_strdown(const char* s, ptrdiff_t ssize);
@@ -19,9 +15,6 @@ char* uw_strndup(const char* str, ptrdiff_t size);
 char* uw_path_get_dirname(const char* file_name);
 char* uw_path_get_basename(const char* file_name);
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif
  

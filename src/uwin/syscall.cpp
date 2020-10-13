@@ -27,6 +27,9 @@
 
 #define g2h_n(addr) ( addr == 0 ? NULL : g2h(addr) )
 
+template<typename T>
+static inline T* g2hx_n(uint32_t addr) { return (addr == 0) ? nullptr : g2hx<T>(addr); }
+
 static uint32_t real_do_syscall(int num, uint32_t arg1,
                                 uint32_t arg2, uint32_t arg3, uint32_t arg4,
                                 uint32_t arg5, uint32_t arg6, uint32_t arg7,
@@ -34,7 +37,7 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
 {
     switch (num) {
         case SYSCALL_PANIC:
-            uw_cpu_panic(g2h(arg1)); return 0;
+            uw_cpu_panic(g2hx<char>(arg1)); return 0;
         case SYSCALL_EXIT: uw_log("exit syscall called\n"); exit(0); return 0;
         case SYSCALL_PRINT: uw_log("%02d: %s\n", uw_current_thread_id, (char*)g2h(arg1)); return 0;
         case SYSCALL_MAP_MEMORY_DYNAMIC:
@@ -66,7 +69,7 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
         case SYSCALL_HT_NEWREF:
             return uw_ht_newref(arg1);
         case SYSCALL_HT_DELREF:
-            uw_ht_delref(arg1, g2h_n(arg2), g2h_n(arg3)); return 0;
+            uw_ht_delref(arg1, g2hx_n<uint32_t>(arg2), g2hx_n<uint32_t>(arg3)); return 0;
         case SYSCALL_HT_GETTYPE:
             return uw_ht_gettype(arg1);
 
@@ -95,37 +98,37 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
             return uw_cond_wait(uw_ht_get_cond(arg1), uw_ht_get_mut(arg2), *(uint64_t*) g2h(arg3));
 
         case SYSCALL_CFG_WRITE:
-            uw_cfg_write(g2h(arg1), g2h(arg2)); return 0;
+            uw_cfg_write(g2hx<char>(arg1), g2hx<const char>(arg2)); return 0;
         case SYSCALL_CFG_READ:
-            return uw_cfg_read(g2h(arg1), g2h(arg2), arg3);
+            return uw_cfg_read(g2hx<const char>(arg1), g2hx<char>(arg2), arg3);
         case SYSCALL_CFG_COMMIT:
             uw_cfg_commit(); return 0;
 
 
         case SYSCALL_FILE_OPEN:
-            return uw_ht_put(uw_file_open(g2h(arg1), arg2), UW_OBJ_FILE);
+            return uw_ht_put(uw_file_open(g2hx<const char>(arg1), arg2), UW_OBJ_FILE);
         case SYSCALL_FILE_READ:
-            return uw_file_read(uw_ht_get_file(arg1), g2h(arg2), arg3);
+            return uw_file_read(uw_ht_get_file(arg1), g2hx<char>(arg2), arg3);
         case SYSCALL_FILE_WRITE:
-            return uw_file_write(uw_ht_get_file(arg1), g2h(arg2), arg3);
+            return uw_file_write(uw_ht_get_file(arg1), g2hx<const char>(arg2), arg3);
         case SYSCALL_FILE_SEEK:
             return uw_file_seek(uw_ht_get_file(arg1), *(int64_t*)g2h(arg2), arg3);
         case SYSCALL_FILE_TELL:
             *(int64_t*)g2h(arg2) = uw_file_tell(uw_ht_get_file(arg1)); return 0;
         case SYSCALL_FILE_GET_FREE_SPACE:
-            uw_file_get_free_space(g2h(arg1), g2h(arg2)); return 0;
+            uw_file_get_free_space(g2hx<uint64_t>(arg1), g2hx<uint64_t>(arg2)); return 0;
         case SYSCALL_FILE_SET_CURRENT_DIRECTORY:
-            return uw_file_set_current_directory(g2h(arg1));
+            return uw_file_set_current_directory(g2hx<const char>(arg1));
         case SYSCALL_FILE_GET_CURRENT_DIRECTORY:
-            uw_file_get_current_directory(g2h(arg1), arg2); return 0;
+            uw_file_get_current_directory(g2hx<char>(arg1), arg2); return 0;
         case SYSCALL_FILE_STAT:
-            uw_file_stat(g2h(arg1), g2h(arg2)); return 0;
+            uw_file_stat(g2hx<const char>(arg1), g2hx<uw_file_stat_t>(arg2)); return 0;
         case SYSCALL_FILE_FSTAT:
-            uw_file_fstat(uw_ht_get_file(arg1), g2h(arg2)); return 0;
+            uw_file_fstat(uw_ht_get_file(arg1), g2hx<uw_file_stat_t>(arg2)); return 0;
         case SYSCALL_FILE_OPENDIR:
-            return uw_ht_put(uw_file_opendir(g2h(arg1)), UW_OBJ_DIR);
+            return uw_ht_put(uw_file_opendir(g2hx<const char>(arg1)), UW_OBJ_DIR);
         case SYSCALL_FILE_READDIR:
-            return uw_file_readdir(uw_ht_get_dir(arg1), g2h(arg2), arg3);
+            return uw_file_readdir(uw_ht_get_dir(arg1), g2hx<char>(arg2), arg3);
 
 
         case SYSCALL_SURF_ALLOC:
@@ -134,7 +137,7 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
         {
             uw_locked_surf_desc_t host_lockdesc;
             uw_ui_surf_lock(uw_ht_get_surf(arg1), &host_lockdesc);
-            target_uw_locked_surf_desc_t* t = g2h(arg2);
+            auto* t = g2hx<target_uw_locked_surf_desc_t>(arg2);
             t->data = h2g(host_lockdesc.data);
             t->w = host_lockdesc.w;
             t->h = host_lockdesc.h;
@@ -144,11 +147,11 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
         case SYSCALL_SURF_UNLOCK:
             uw_ui_surf_unlock(uw_ht_get_surf(arg1)); return 0;
         case SYSCALL_SURF_BLIT:
-            uw_ui_surf_blit(uw_ht_get_surf(arg1), g2h_n(arg2), uw_ht_get_surf(arg3), g2h_n(arg4)); return 0;
+            uw_ui_surf_blit(uw_ht_get_surf(arg1), g2hx_n<uw_rect_t>(arg2), uw_ht_get_surf(arg3), g2hx_n<uw_rect_t>(arg4)); return 0;
         case SYSCALL_SURF_BLIT_SRCKEYED:
-            uw_ui_surf_blit_srckeyed(uw_ht_get_surf(arg1), g2h_n(arg2), uw_ht_get_surf(arg3), g2h_n(arg4), arg5); return 0;
+            uw_ui_surf_blit_srckeyed(uw_ht_get_surf(arg1), g2hx_n<uw_rect_t>(arg2), uw_ht_get_surf(arg3), g2hx_n<uw_rect_t>(arg4), arg5); return 0;
         case SYSCALL_SURF_FILL:
-            uw_ui_surf_fill(uw_ht_get_surf(arg1), g2h_n(arg2), arg3); return 0;
+            uw_ui_surf_fill(uw_ht_get_surf(arg1), g2hx_n<uw_rect_t>(arg2), arg3); return 0;
         case SYSCALL_SURF_GET_PRIMARY:
             return uw_ht_put(uw_ui_surf_get_primary(), UW_OBJ_SURF);
 
@@ -180,10 +183,10 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
             uw_ui_wave_add_buffer(uw_ht_get_wave(arg1), g2h(arg2), arg3); return 0;
         */
 
-        case SYSCALL_WIN32_GET_MODULE_FILE_NAME:            return ldr_get_module_filename(arg1, g2h(arg2), arg3);
-        case SYSCALL_WIN32_GET_MODULE_HANDLE:               return ldr_get_module_handle(g2h_n(arg1));
-        case SYSCALL_WIN32_GET_PROC_ADDRESS:                return ldr_get_proc_address(arg1, g2h(arg2));
-        case SYSCALL_WIN32_LOAD_LIBRARY:                    return ldr_load_library(g2h(arg1));
+        case SYSCALL_WIN32_GET_MODULE_FILE_NAME:            return ldr_get_module_filename(arg1, g2hx<char>(arg2), arg3);
+        case SYSCALL_WIN32_GET_MODULE_HANDLE:               return ldr_get_module_handle(g2hx_n<const char>(arg1));
+        case SYSCALL_WIN32_GET_PROC_ADDRESS:                return ldr_get_proc_address(arg1, g2hx<const char>(arg2));
+        case SYSCALL_WIN32_LOAD_LIBRARY:                    return ldr_load_library(g2hx<const char>(arg1));
         case SYSCALL_WIN32_GET_ENTRY_POINT:                 return ldr_get_entry_point(arg1);
 
 
@@ -194,9 +197,9 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
             uw_win32_mq_post(uw_ht_get_thread(arg1), arg2, arg3, arg4, arg5);
             return 0;
         case SYSCALL_WIN32_MQ_TRY_POP:
-            return uw_win32_mq_try_pop(g2h(arg1));
+            return uw_win32_mq_try_pop(g2hx<uw_win32_mq_msg_t>(arg1));
         case SYSCALL_WIN32_MQ_POP:
-            uw_win32_mq_pop(g2h(arg1));
+            uw_win32_mq_pop(g2hx<uw_win32_mq_msg_t>(arg1));
             return 0;
 
 

@@ -44,7 +44,7 @@ char* uw_strconcat(const char* str1, ...) {
     
     va_end(tmpa);
     
-    char* r = uw_malloc(size + 1);
+    char* r = (char*)uw_malloc(size + 1);
     char* p = r;
     
     size_t l = strlen(str1);
@@ -79,7 +79,7 @@ char* uw_strdup_printf(const char *format, ...) {
     
     if (size < 0) abort();
     
-    char* r = uw_malloc(size + 1);
+    char* r = (char*)uw_malloc(size + 1);
     vsprintf(r, format, args);
     
     return r;
@@ -92,7 +92,7 @@ char* uw_strdup(const char* str) {
 char* uw_strndup(const char* str, ptrdiff_t size) {
     if (size == -1)
         return uw_strdup(str);
-    char* r = uw_malloc(size + 1);
+    char* r = (char*)uw_malloc(size + 1);
     memcpy(r, str, size);
     r[size] = 0;
     return r;

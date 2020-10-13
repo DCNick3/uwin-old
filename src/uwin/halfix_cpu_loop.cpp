@@ -51,7 +51,7 @@ static void write_dt(void *ptr, unsigned long addr, unsigned long limit,
     e1 = (addr << 16) | (limit & 0xffff);
     e2 = ((addr >> 16) & 0xff) | (addr & 0xff000000) | (limit & 0x000f0000);
     e2 |= flags;
-    p = ptr;
+    p = (uint32_t*)ptr;
     p[0] = e1;
     p[1] = e2;
 }
@@ -59,7 +59,7 @@ static void write_dt(void *ptr, unsigned long addr, unsigned long limit,
 
 static uint32_t setup_teb(uw_target_thread_data_t *params) {
     params->teb_base = uw_target_map_memory_dynamic(uw_host_page_size, UW_PROT_RW);
-    uint32_t *teb = g2h(params->teb_base);
+    auto* teb = g2hx<uint32_t>(params->teb_base);
 
     teb[UW_TEB_SEH_FRAME]       = 0xffffffff; //Current SEH frame
     teb[UW_TEB_STACK_BOTTOM]    = params->stack_top + params->stack_size;
@@ -107,7 +107,7 @@ static uint32_t setup_stack(uw_target_thread_data_t *params) {
 #define DESC_A_MASK     (1 << 8)
 
 void uw_cpu_setup_thread(void* cpu_context, uw_target_thread_data_t *params) {
-    thread_cpu_ptr = cpu_context;
+    thread_cpu_ptr = (cpu*)cpu_context;
 
     cpu_init();
     cpu_init_32bit();
@@ -123,7 +123,7 @@ void uw_cpu_setup_thread(void* cpu_context, uw_target_thread_data_t *params) {
         );
         thread_cpu.seg_limit[SEG_GDTR] = (sizeof(uint64_t) * TARGET_GDT_ENTRIES - 1);
 
-        gdt_table = g2h(thread_cpu.seg_base[SEG_GDTR]);
+        gdt_table = g2hx<seg_desc>(thread_cpu.seg_base[SEG_GDTR]);
 
 
         // code and data (full address space)

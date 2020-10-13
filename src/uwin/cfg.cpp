@@ -40,7 +40,7 @@ void uw_cfg_initialize(void)
         fseek(f, 0L, SEEK_END);
         size_t size = ftell(f);
         fseek(f, 0L, SEEK_SET);
-        char *contents = uw_malloc(size + 1);
+        auto *contents = (char*)uw_malloc(size + 1);
         fread(contents, 1, size, f);
         fclose(f);
 
@@ -93,7 +93,7 @@ int32_t uw_cfg_read(const char* key, char* buffer, uint32_t size)
 void uw_cfg_commit(void)
 {
     int size = ini_save(config_file, NULL, 0);
-    char* data = uw_malloc(size);
+    auto* data = (char*)uw_malloc(size);
     ini_save(config_file, data, size);
 
 

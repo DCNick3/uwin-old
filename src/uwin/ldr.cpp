@@ -19,14 +19,12 @@
 
 #include "uwin/uwin.h"
 
-extern "C" {
-    #include "uwin/uwindows.h"
-    #include "uwin/uwinerr.h"
-    #include "uwin/util/align.h"
-    #include "uwin/util/mem.h"
-    #include "uwin/util/str.h"
-    #include "uwin/util/file.h"
-}
+#include "uwin/uwindows.h"
+#include "uwin/uwinerr.h"
+#include "uwin/util/align.h"
+#include "uwin/util/mem.h"
+#include "uwin/util/str.h"
+#include "uwin/util/file.h"
 
 #include <string.h>
 #include "fcaseopen.h"

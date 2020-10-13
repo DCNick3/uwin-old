@@ -4,10 +4,6 @@
 
 #include "mem.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 //#include <windows.h>
 //#include <winternl.h>
@@ -361,8 +357,5 @@ extern __thread uw_target_thread_data_t* uw_current_thread_data;
 //extern abi_ulong target_idt_base;
 //extern abi_ulong target_gdt_base;
 
-#ifdef __cplusplus
-};
-#endif
 
-#endif /* QEMU_H */
+#endif

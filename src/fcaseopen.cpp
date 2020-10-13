@@ -22,8 +22,9 @@
 // r must have strlen(path) + 3 bytes
 static int casepath(char const *path, char *r)
 {
+    // TODO: C++
     size_t l = strlen(path);
-    char *p = alloca(l + 1);
+    char *p = (char*)alloca(l + 1);
     strcpy(p, path);
     size_t rl = 0;
     
@@ -96,7 +97,7 @@ FILE *fcaseopen(char const *path, char const *mode)
     FILE *f = fopen(path, mode);
     if (!f)
     {
-        char *r = alloca(strlen(path) + 3);
+        char *r = (char*)alloca(strlen(path) + 3);
         if (casepath(path, r))
         {
             f = fopen(r, mode);
@@ -110,7 +111,7 @@ DIR* caseopendir(const char* path)
     DIR *d = opendir(path);
     if (!d)
     {
-        char *r = alloca(strlen(path) + 3);
+        char *r = (char*)alloca(strlen(path) + 3);
         if (casepath(path, r))
         {
             d = opendir(r);
@@ -120,9 +121,11 @@ DIR* caseopendir(const char* path)
 }
 
 int casestat(const char* pathname, struct stat *statbuf) {
+
+    // TODO: C++
     int res = stat(pathname, statbuf);
     if (res) {
-        char *r = alloca(strlen(pathname) + 3);
+        char *r = (char*)alloca(strlen(pathname) + 3);
         if (casepath(pathname, r))
         {
             res = stat(r, statbuf);

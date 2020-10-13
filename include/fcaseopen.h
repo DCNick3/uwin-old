@@ -8,10 +8,6 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 extern FILE *fcaseopen(char const *path, char const *mode);
 
 //extern GDir* g_dir_caseopen(char const *path);
@@ -23,9 +19,5 @@ extern FILE *fcaseopen(char const *path, char const *mode);
 extern DIR* caseopendir(const char* dir);
 
 extern int casestat(const char* pathname, struct stat *statbuf);
-
-#if defined(__cplusplus)
-}
-#endif
 
 #endif 

@@ -1,5 +1,6 @@
 
 #include <assert.h>
+#include <atomic>
 
 #include "uwin/uwin.h"
 #include "uwin/util/mem.h"
@@ -33,7 +34,7 @@ __thread uw_target_thread_data_t* uw_current_thread_data;
 //extern int gdbstub_port;
 
 static void *host_thread_entry(void* param) {
-    uw_thread_init_param_t* init_param = param;
+    auto init_param = (uw_thread_init_param_t*)param;
     uint32_t thread_id = init_param->thread_id;
     uw_thread_t *thread = init_param->thread;
     
@@ -111,7 +112,7 @@ void uw_thread_initialize(void) {
 void uw_thread_finalize(void) {
 }
 
-static _Atomic(uint32_t) next_thread_id = UW_INITIAL_THREAD_ID;
+static std::atomic<uint32_t> next_thread_id(UW_INITIAL_THREAD_ID);
 
 static uw_thread_init_param_t* create_thread_param(uw_target_process_data_t *process_data, uint32_t entry, uint32_t entry_param, uint32_t stack_size, uint32_t suspended) {
     uint32_t thread_id = next_thread_id++;
@@ -141,7 +142,7 @@ void* uw_create_initial_thread(uw_target_process_data_t *process_data, uint32_t 
 }
 
 void uw_start_initial_thread(void* initial_thread_param) {
-    uw_thread_init_param_t* param = initial_thread_param;
+    auto* param = (uw_thread_init_param_t*)initial_thread_param;
     
     param->thread->thread_data.self_handle = uw_ht_put(param->thread, UW_OBJ_THREAD);
     

@@ -16,6 +16,8 @@ find_package(SDL2 REQUIRED)
 
 include_directories(${SDL2_INCLUDE_DIRS})
 
+include_directories(ext-deps/boots-ext-di/include)
+
 if("${SDL2_LIBRARIES}" STREQUAL "")
     # CMake is portable? Nope, lol.
     # Depending on how SDL2 was built its usage differs
@@ -50,7 +52,7 @@ set(HALFIX_SOURCES
 
 set(HALFIX_CPU_SOURCES
         ${HALFIX_SOURCES}
-        src/uwin/halfix_cpu_loop.c)
+        src/uwin/halfix_cpu_loop.cpp)
 
 set(AARCH64_JIT_SOURCES
         src/uwin-jit/aarch64_code_generator.cpp)
@@ -78,28 +80,28 @@ endif()
 
 
 set(UWIN_POSIX_SOURCES
-        src/uwin/host/posix/memory_map.c
-        src/uwin/host/posix/time.c
-        src/uwin/host/posix/sighandler.c
-        src/uwin/host/posix/jitmem.c)
+        src/uwin/host/posix/memory_map.cpp
+        src/uwin/host/posix/time.cpp
+        src/uwin/host/posix/sighandler.cpp
+        src/uwin/host/posix/jitmem.cpp)
 
 set(UWIN_SOURCES
         ${DLLS_FILE}
-        src/uwin/util/file.c
-        src/uwin/util/str.c
-        src/uwin/util/mem.c
+        src/uwin/util/file.cpp
+        src/uwin/util/str.cpp
+        src/uwin/util/mem.cpp
         src/uwin/ldr.cpp
-        src/uwin/thread.c
+        src/uwin/thread.cpp
         src/uwin/handletable.cpp
-        src/uwin/syscall.c
-        src/uwin/cfg.c
+        src/uwin/syscall.cpp
+        src/uwin/cfg.cpp
         src/uwin/file.cpp
         src/uwin/win32_mq.cpp
         src/uwin/sdl_ui_gmq.cpp
-        src/fcaseopen.c
+        src/fcaseopen.cpp
         src/main.cpp
-        src/ini.c
-        src/uwin/syncronization.c)
+        src/ini.cpp
+        src/uwin/syncronization.cpp)
 
 if (UNIX)
     list(APPEND UWIN_SOURCES ${UWIN_POSIX_SOURCES})

@@ -23,7 +23,7 @@ struct uw_mut {
 void uw_sem_initialize(void) {}
 void uw_sem_finalize(void) {}
 uw_sem_t* uw_sem_alloc(int count) {
-    uw_sem_t* r = uw_malloc(sizeof(uw_sem_t));
+    auto* r = (uw_sem_t*)uw_malloc(sizeof(uw_sem_t));
     sem_init(&r->sem, 0, count);
     return r;
 }

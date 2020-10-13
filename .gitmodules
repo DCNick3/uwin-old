@@ -7,3 +7,6 @@
 [submodule "ext-deps/libx87"]
 	path = ext-deps/libx87
 	url = git@github.com:DCNick3/libx87.git
+[submodule "ext-deps/boots-ext-di"]
+	path = ext-deps/boots-ext-di
+	url = https://github.com/boost-ext/di.git
