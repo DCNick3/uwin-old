@@ -97,6 +97,6 @@ void __stdcall init(void* entry_point, void* entry_param)
         kprintf("thread entry for %d returned %u.", tid, r);
         kthread_leave(); // TODO: return code?
     }
-    
+
     kpanic("init end reached");
 }

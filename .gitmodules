@@ -4,3 +4,6 @@
 [submodule "ext-deps/vixl/vixl"]
 	path = ext-deps/vixl/vixl
 	url = https://github.com/DCNick3/vixl.git
+[submodule "ext-deps/libx87"]
+	path = ext-deps/libx87
+	url = git@github.com:DCNick3/libx87.git

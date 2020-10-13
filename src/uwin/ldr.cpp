@@ -46,38 +46,11 @@ struct ldr_override
     const uint8_t* data;
 };
 
+#define INCLUDE_LDR_OVERRIDES_H
+// defines an `static struct ldr_override ldr_overrides[]`, built by build_dll_archive.py
+#include "ldr_overrides.h"
+#undef INCLUDE_LDR_OVERRIDES_H
 
-#define LDR_OVERRIDES \
-    X(INIT) \
-    X(KSVC) \
-    X(IFC20) \
-    X(VERSION) \
-    X(WINMM) \
-    X(KERNEL32) \
-    X(USER32) \
-    X(GDI32) \
-    X(ADVAPI32) \
-    X(OLE32) \
-    X(DDRAW) \
-    X(WSOCK32) \
-    X(SHELL32) \
-    X(MSS32) \
-    X(BINKW32)
-
-#define embedded_data_define(name) extern const uint8_t _binary_ ## name ## _start[];
-#define embedded_data_ref(name) _binary_ ## name ## _start
-
-#define X(x) embedded_data_define(x ## _DLL)
-LDR_OVERRIDES
-#undef X
-
-static struct ldr_override ldr_overrides[] = {
-#define X(x) { #x ".DLL", embedded_data_ref(x ## _DLL) },
-        LDR_OVERRIDES
-#undef X
-};
-#undef embedded_data_define
-#undef embedded_data_ref
 
 struct module {
     std::string name;
@@ -486,7 +459,9 @@ void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_t
     process_data->library_init_list = init_list;
     process_data->command_line = command_line;
     process_data->init_entry = init_dll->entry_point;
-    process_data->process_id = 2; // well..
+    process_data->process_id = 2; // to make sure nothing breaks =)
+
+    assert(init_dll->entry_point != 0);
     
     void* initial_thread_param = uw_create_initial_thread(process_data, exec_module->entry_point, 0, exec_module->stack_size);
 

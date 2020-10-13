@@ -83,8 +83,6 @@ set(UWIN_POSIX_SOURCES
         src/uwin/host/posix/sighandler.c
         src/uwin/host/posix/jitmem.c)
 
-set(DLLS_FILE ${CMAKE_CURRENT_BINARY_DIR}/dlls.c)
-
 set(UWIN_SOURCES
         ${DLLS_FILE}
         src/uwin/util/file.c
@@ -153,8 +151,28 @@ set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-point
 add_executable(uwin
         ${UWIN_SOURCES})
 
-add_custom_command(OUTPUT ${DLLS_FILE} dummy_file_that_will_never_exist
-        COMMAND make -j1 -C ${CMAKE_SOURCE_DIR}/src/uwin/target_dlls DEST_FILE="${DLLS_FILE}")
+include(ExternalProject)
+set(TARGET_DLLS_DIR ${CMAKE_CURRENT_BINARY_DIR}/target_dlls-prefix/src/target_dlls-build)
+set(DLLS_FILE ${TARGET_DLLS_DIR}/dlls.c)
+set(LDR_OVERRIDES_FILE ${TARGET_DLLS_DIR}/ldr_overrides.h)
+ExternalProject_add(target_dlls
+        SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/src/uwin/target_dlls
+        INSTALL_COMMAND ""
+        BUILD_BYPRODUCTS ${DLLS_FILE} ${LDR_OVERRIDES_FILE}
+        BUILD_ALWAYS true
+        CMAKE_ARGS
+            -DCMAKE_TOOLCHAIN_FILE:string=${CMAKE_CURRENT_LIST_DIR}/src/uwin/target_dlls/Toolchain-mingw-w64.cmake
+        )
+
+target_sources(uwin PUBLIC ${DLLS_FILE})
+set_source_files_properties(src/uwin/ldr.cpp PROPERTIES OBJECT_DEPENDS ${LDR_OVERRIDES_FILE})
+
+include_directories(${TARGET_DLLS_DIR})
+
+add_dependencies(uwin target_dlls)
+
+#add_custom_command(OUTPUT ${DLLS_FILE} dummy_file_that_will_never_exist
+#        COMMAND make -j1 -C ${CMAKE_SOURCE_DIR}/src/uwin/target_dlls DEST_FILE="${DLLS_FILE}")
 
 if (USE_JIT)
     list(APPEND USED_LIBS Zydis)
