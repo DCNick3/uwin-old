@@ -1,12 +1,39 @@
+#pragma once
 
-#ifndef UWIN_ALIGNUTILS_H 
-#define UWIN_ALIGNUTILS_H
 
-#include <stdint.h>
+#include <cstdint>
+#include <cstdlib>
+#include <type_traits>
 
-#define UW_IS_ALIGNED(x, a) (((uintptr_t)(x)) % (a) == 0)
+namespace uwin {
 
-#define UW_ALIGN_DOWN(n, m) ((n) / (m) * (m))
-#define UW_ALIGN_UP(n, m) UW_ALIGN_DOWN((n) + (m) - 1, (m))
+    namespace detail {
+        template<typename T>
+        static constexpr inline bool is_alignable() {
+            return std::is_convertible<T, std::uintptr_t>::value;
+        }
+    }
 
-#endif
+    template<typename T>
+    static inline bool is_aligned(T val, std::size_t alignment) {
+        static_assert(detail::is_alignable<T>(), "Type is not alignable");
+
+        return val % alignment == 0;
+    }
+
+    template<typename T>
+    static inline T align_down(T val, std::size_t alignment) {
+        static_assert(detail::is_alignable<T>(), "Type is not alignable");
+
+        return val / alignment * alignment;
+    }
+
+    template<typename T>
+    static inline T align_up(T val, std::size_t alignment) {
+        static_assert(detail::is_alignable<T>(), "Type is not alignable");
+
+        auto ptr1 = val + alignment - 1;
+        return align_down(ptr1, alignment);
+    }
+
+}

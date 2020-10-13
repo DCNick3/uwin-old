@@ -213,7 +213,7 @@ static int load_pe(const uint8_t* pe_file_data, module& mod)
         uint32_t start = sections[i].VirtualAddress;
         uint32_t size = sections[i].SizeOfRawData;
         uint32_t raw_ptr = sections[i].PointerToRawData;
-        uint32_t vsize = UW_ALIGN_UP(sections[i].Misc.VirtualSize, uw_host_page_size);
+        uint32_t vsize = uwin::align_up(sections[i].Misc.VirtualSize, uw_host_page_size);
         uint32_t vend = start + vsize;
         int read = (sections[i].Characteristics & IMAGE_SCN_MEM_READ) != 0;
         int write = (sections[i].Characteristics & IMAGE_SCN_MEM_WRITE) != 0;
@@ -304,7 +304,7 @@ static int load_pe(const uint8_t* pe_file_data, module& mod)
     // finalize sections protection
     for (int i = 0; i < nt_header->NumberOfSections; i++) {
         uint32_t start = sections[i].VirtualAddress;
-        uint32_t vsize = UW_ALIGN_UP(sections[i].Misc.VirtualSize, uw_host_page_size);
+        uint32_t vsize = uwin::align_up(sections[i].Misc.VirtualSize, uw_host_page_size);
         int read = (sections[i].Characteristics & IMAGE_SCN_MEM_READ) != 0;
         int write = (sections[i].Characteristics & IMAGE_SCN_MEM_WRITE) != 0;
         
@@ -437,7 +437,7 @@ void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_t
     
     int init_count = library_init_routines.size();
     uint32_t init_list = uw_target_map_memory_dynamic(
-            UW_ALIGN_UP((init_count + 1) * sizeof(library_init_routine), uw_host_page_size), UW_PROT_RW);
+            uwin::align_up((init_count + 1) * sizeof(library_init_routine), uw_host_page_size), UW_PROT_RW);
     auto h_init_list = g2hx<library_init_routine>(init_list);
     for (int i = 0; i < library_init_routines.size(); i++)
         h_init_list[i] = library_init_routines[i];
@@ -446,7 +446,7 @@ void* ldr_load_executable_and_prepare_initial_thread(const char* exec_path, uw_t
     
     uw_log("put %d init routines\n", init_count);
     
-    uint32_t command_line = uw_target_map_memory_dynamic(UW_ALIGN_UP(strlen(exec_name) + 1, uw_host_page_size),
+    uint32_t command_line = uw_target_map_memory_dynamic(uwin::align_up(strlen(exec_name) + 1, uw_host_page_size),
                                                          UW_PROT_RW);
     strcpy(g2hx<char>(command_line), exec_name);
     

@@ -118,7 +118,7 @@ void uw_cpu_setup_thread(void* cpu_context, uw_target_thread_data_t *params) {
     {
         struct seg_desc *gdt_table;
         thread_cpu.seg_base[SEG_GDTR] = params->gdt_base = uw_target_map_memory_dynamic(
-                UW_ALIGN_UP(sizeof(uint64_t) * TARGET_GDT_ENTRIES, uw_host_page_size),
+                uwin::align_up(sizeof(uint64_t) * TARGET_GDT_ENTRIES, uw_host_page_size),
                 UW_PROT_RW
         );
         thread_cpu.seg_limit[SEG_GDTR] = (sizeof(uint64_t) * TARGET_GDT_ENTRIES - 1);

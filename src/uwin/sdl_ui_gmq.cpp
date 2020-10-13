@@ -158,7 +158,7 @@ void uw_ui_initialize(int interactive) {
             abort();
         }
 
-        size_t sz = UW_ALIGN_UP(800 * 600, uw_host_page_size);
+        size_t sz = uwin::align_up(800 * 600, uw_host_page_size);
         uint32_t v = uw_target_map_memory_dynamic(sz, UW_PROT_RW);
         assert(v != (uint32_t) -1);
         void *mem = g2h(v);
@@ -455,8 +455,8 @@ uw_surf_t* uw_ui_surf_alloc(int32_t width, int32_t height) {
 
     // we want to manually allocate surface for it to be accesible by guest
 
-    size_t pitch = UW_ALIGN_UP(width, 4) * 2;
-    size_t sz = UW_ALIGN_UP(pitch * height, uw_host_page_size);
+    size_t pitch = uwin::align_up(width, 4) * 2;
+    size_t sz = uwin::align_up(pitch * height, uw_host_page_size);
     uint32_t v = uw_target_map_memory_dynamic(sz, UW_PROT_RW);
     assert(v != (uint32_t) -1);
     void *mem = g2h(v);
@@ -479,8 +479,8 @@ void uw_ui_surf_free(uw_surf_t* surf) {
     }
 
     void *pixdata = surf->sdl_surf.pixels;
-    size_t pitch = UW_ALIGN_UP(surf->sdl_surf.w, 4);
-    size_t sz = UW_ALIGN_UP(pitch * surf->sdl_surf.h * 2, uw_host_page_size);
+    size_t pitch = uwin::align_up(surf->sdl_surf.w, 4);
+    size_t sz = uwin::align_up(pitch * surf->sdl_surf.h * 2, uw_host_page_size);
     uw_unmap_memory(h2g(pixdata), sz);
     SDL_FreeSurface(&surf->sdl_surf);
 }

@@ -66,8 +66,8 @@ static int portable_prot_to_posix(int prot)
 
 static void check_memory_range(uint32_t address, uint32_t size)
 {
-    assert(UW_IS_ALIGNED(address, uw_host_page_size));
-    assert(UW_IS_ALIGNED(size, uw_host_page_size));
+    assert(uwin::is_aligned(address, uw_host_page_size));
+    assert(uwin::is_aligned(size, uw_host_page_size));
     assert(address < TARGET_ADDRESS_SPACE_SIZE && address + size < TARGET_ADDRESS_SPACE_SIZE);
 }
 
@@ -95,7 +95,7 @@ int uw_target_map_memory_fixed(uint32_t address, uint32_t size, int prot)
 
 uint32_t uw_target_map_memory_dynamic(uint32_t size, int prot)
 {
-    assert(UW_IS_ALIGNED(size, uw_host_page_size));
+    assert(uwin::is_aligned(size, uw_host_page_size));
     uint32_t end_address = map_base + size;
     assert(end_address <= TARGET_ADDRESS_SPACE_SIZE);
     if (end_address > TARGET_ADDRESS_SPACE_SIZE)
