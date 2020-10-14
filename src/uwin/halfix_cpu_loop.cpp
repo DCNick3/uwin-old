@@ -72,7 +72,7 @@ static uint32_t setup_teb(uw_target_thread_data_t *params) {
     teb[UW_TEB_LAST_ERROR]      = 0;
 
     // dirty stuff...
-    win32_last_error = teb + UW_TEB_LAST_ERROR;
+    //win32_last_error = teb + UW_TEB_LAST_ERROR;
 
     return params->teb_base;
 }

@@ -20,6 +20,7 @@
 #include "uwin/uwin.h"
 #include "uwin/util/mem.h"
 #include "uwin/util/str.h"
+#include "uwin/kobj/kfile.h"
 
 #include "uwin/uwinerr.h"
 #include "fcaseopen.h"
@@ -42,9 +43,9 @@
 
 // should fopen or open be used? dunno...
 
-struct uw_file {
+/*struct uw_file {
     FILE* f;
-};
+};*/
 
 static char* current_directory;
 static pthread_mutex_t curdir_mutex;
@@ -64,7 +65,6 @@ void uw_file_finalize(void) {
     uw_free(host_base_path);
 }
 
-// Do I want C++? I don't know... But this function requires it
 // Dragons be here
 static char* target_realpath(const char* file_name) {
     uw_log("target_realpath(%s)\n", file_name);
@@ -100,7 +100,7 @@ static char* target_realpath(const char* file_name) {
 
 
     //out_buffer[0] = 0;
-    //strcat(out_buffer, "C:/");
+    //strcat(out_buffer, "C:/");->get()
     //int out_buffer_length = 3;
 
     std::string component_buffer;//(char*)uw_malloc(strlen(copy) + 1); // it can't get bigger
@@ -229,17 +229,6 @@ static uint32_t errno_to_win32_error(void) {
     return ERROR_FILE_NOT_FOUND;
 }
 
-static int seek_origin_to_fseek_whence(int origin) {
-    switch (origin) {
-        case UW_FILE_SEEK_BGN: return SEEK_SET;
-        case UW_FILE_SEEK_CUR: return SEEK_CUR;
-        case UW_FILE_SEEK_END: return SEEK_END;
-        default: 
-            fprintf(stderr, "Unsupported origin: %d\n", origin);
-            abort();
-    }
-}
-
 void uw_file_set_host_directory(const char* path) {
     //assert(g_file_test(path, G_FILE_TEST_IS_DIR));
 
@@ -275,75 +264,30 @@ void uw_file_set_host_directory(const char* path) {
     uw_free(p);
 }
 
-uw_file_t* uw_file_open(const char* file_name, int mode)
+FILE* uw_file_open(const char* file_name, int mode)
 {
     //qemu_log("uw_file_open(%s, %d)\n", file_name, mode);
     
     char* host_path = translate_path(file_name);
-    if (host_path == NULL) {
-        win32_err = ERROR_FILE_NOT_FOUND;
-        return NULL;
-    }
+    assert(host_path != NULL);
     
     uw_log("fcaseopen(%s)\n", host_path);
     
     FILE* f = fcaseopen(host_path, mode_to_fopen_mode(mode));
     uw_free(host_path);
     
-    if (f == NULL) {
-        win32_err = errno_to_win32_error();
-        return NULL;
-    }
+    assert(f != NULL);
     
-    win32_err = ERROR_SUCCESS;
-    
-    uw_file_t* r = uw_new(uw_file_t, 1);
-    r->f = f;
-    return r;
+    //win32_err = ERROR_SUCCESS;
+    return f;
 }
 
-int32_t uw_file_read(uw_file_t* file, char* buffer, uint32_t length)
+/*
+void uw_file_close(uwin::kfile* file)
 {
-    int32_t r = fread(buffer, 1, length, file->f);
-    if (r == 0) {
-        if (ferror(file->f)) {
-            assert("IO error occured" == 0);
-        }
-    }
-    
-    win32_err = ERROR_SUCCESS;
-    
-    // TODO: error handling
-    return r;
-}
-
-int32_t uw_file_write(uw_file_t* file, const char* buffer, uint32_t length)
-{
-    int32_t r = fwrite(buffer, 1, length, file->f);
-    win32_err = ERROR_SUCCESS;
-    // TODO: error handling
-    return r;
-}
-
-int32_t uw_file_seek(uw_file_t* file, int64_t seek, uint32_t origin)
-{
-    int whence = seek_origin_to_fseek_whence(origin);
-    win32_err = ERROR_SUCCESS;
-    //qemu_log("fseek(%p, %lx, %d)\n", file->f, seek, whence);
-    return fseek(file->f, seek, whence);
-}
-
-int64_t uw_file_tell(uw_file_t* file)
-{
-    win32_err = ERROR_SUCCESS;
-    return ftell(file->f);
-}
-
-void uw_file_close(uw_file_t* file)
-{
-    fclose(file->f);
-    uw_free(file);
-}
+    fclose(file->get());
+    //uw_free(file);
+}*/
 
 void uw_file_get_free_space(uint64_t* free_bytes, uint64_t* total_bytes) {
     struct statvfs buf;
@@ -367,7 +311,8 @@ int32_t uw_file_set_current_directory(const char* new_current_directory)
         closedir(dir);
     else {
         uw_log("directory does not exist, returning error\n");
-        win32_err = ERROR_FILE_NOT_FOUND;
+        std::terminate();
+        //win32_err = ERROR_FILE_NOT_FOUND;
         pthread_mutex_unlock(&curdir_mutex);
         return -1;
     }
@@ -423,21 +368,11 @@ void uw_file_stat(const char* file_name, uw_file_stat_t* stat_res)
     stat_buf_to_uw_file_stat(&buf, stat_res);
 }
 
-void uw_file_fstat(uw_file_t* file, uw_file_stat_t* stat_res) 
-{
-    struct stat buf;
-    
-    int r = fstat(fileno(file->f), &buf); // meh. glib sucks here
-    assert(!r);
-    
-    stat_buf_to_uw_file_stat(&buf, stat_res);
-}
-
 struct uw_dir {
     DIR* dir;
 };
 
-uw_dir_t* uw_file_opendir(const char* file_name)
+DIR* uw_file_opendir(const char* file_name)
 {
     char* path = translate_path(file_name);
     
@@ -447,31 +382,10 @@ uw_dir_t* uw_file_opendir(const char* file_name)
     uw_free(path);
     assert(dir);
 
-    uw_dir_t* res = uw_new(uw_dir_t, 1);
-    res->dir = dir;
-
-    return res;
+    return dir;
 }
 
-int32_t uw_file_readdir(uw_dir_t* dir, char* buffer, uint32_t size)
-{
-    struct dirent* entry = readdir(dir->dir);
-    
-    uw_log("g_dir_read_name() -> %p (%s)\n", entry, entry ? entry->d_name : "<NULL>");
-    
-    if (entry == NULL)
-        return -1;
-    
-    uint32_t l = strlen(entry->d_name) + 1;
-    if (l < size)
-        l = size;
-    memcpy(buffer, entry->d_name, l);
-    buffer[l-1] = '\0';
-    
-    return 0;
-}
-
-void uw_file_closedir(uw_dir_t* dir) {
+/*void uw_file_closedir(uw_dir_t* dir) {
     closedir(dir->dir);
     uw_free(dir);
-}
+}*/

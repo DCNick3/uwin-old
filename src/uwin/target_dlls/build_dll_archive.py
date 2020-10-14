@@ -34,5 +34,5 @@ with open(overridesfile, 'w') as f:
     
     f.write("static struct ldr_override ldr_overrides[] = {\n")
     for x in dlls:
-        f.write("    { \"%s\", %s },\n" % (x + ".DLL", embedded_data_ref(x + "_DLL")))
+        f.write("    { \"%s\", %s },\n" % (x.lower() + ".dll", embedded_data_ref(x + "_DLL")))
     f.write("};\n")

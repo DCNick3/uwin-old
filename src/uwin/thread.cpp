@@ -6,7 +6,9 @@
 #include "uwin/util/mem.h"
 
 // backed by posix threads
+#include "uwin/handletable.h"
 
+// TODO: this is such a mess... Should clean it up a lot
 struct uw_thread {
     uw_target_thread_data_t thread_data;
     void *cpu_context;

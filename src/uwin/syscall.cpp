@@ -22,6 +22,12 @@
 #include "uwin/uwin.h"
 #include "uwin/common_def.h"
 #include "uwin/util/mem.h"
+#include "uwin/handletable.h"
+#include "uwin/kobj/ksem.h"
+#include "uwin/kobj/kmut.h"
+#include "uwin/kobj/kcond.h"
+#include "uwin/kobj/kfile.h"
+#include "uwin/kobj/kdir.h"
 
 #include <stdio.h>
 
@@ -71,31 +77,37 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
         case SYSCALL_HT_DELREF:
             uw_ht_delref(arg1, g2hx_n<uint32_t>(arg2), g2hx_n<uint32_t>(arg3)); return 0;
         case SYSCALL_HT_GETTYPE:
-            return uw_ht_gettype(arg1);
+            uw_cpu_panic("SYSCALL_HT_GETTYPE is not implemented");
 
 
         case SYSCALL_SEM_ALLOC:
-            return uw_ht_put(uw_sem_alloc(arg1), UW_OBJ_SEM);
+            return uwin::ht_put_new<uwin::ksem>(arg1);
         case SYSCALL_SEM_POST:
-            uw_sem_post(uw_ht_get_sem(arg1)); return 0;
+            uwin::ht_get<uwin::ksem>(arg1).post(); return 0;
         case SYSCALL_SEM_WAIT:
-            return uw_sem_wait(uw_ht_get_sem(arg1), *(uint64_t *) g2h(arg2));
+            uwin::ht_get<uwin::ksem>(arg1).wait(*g2hx<uint64_t>(arg2)); return 0;
 
         case SYSCALL_MUT_ALLOC:
-            return uw_ht_put(uw_mut_alloc(), UW_OBJ_MUT);
+            return uwin::ht_put_new<uwin::kmut>();
         case SYSCALL_MUT_LOCK:
-            return uw_mut_lock(uw_ht_get_mut(arg1), *(uint64_t*) g2h(arg2));
+            return uwin::ht_get<uwin::kmut>(arg1).lock(*g2hx<uint64_t>(arg2));
+            //return uw_mut_lock(uw_ht_get_mut(arg1), *g2hx<uint64_t>(arg2));
         case SYSCALL_MUT_UNLOCK:
-            uw_mut_unlock(uw_ht_get_mut(arg1)); return 0;
+            uwin::ht_get<uwin::kmut>(arg1).unlock(); return 0;
+            //uw_mut_unlock(uw_ht_get_mut(arg1)); return 0;
 
         case SYSCALL_COND_ALLOC:
-            return uw_ht_put(uw_cond_alloc(), UW_OBJ_COND);
+            return uwin::ht_put_new<uwin::kcond>();
+            //return uw_ht_put(uw_cond_alloc(), UW_OBJ_COND);
         case SYSCALL_COND_SIGNAL:
-            uw_cond_signal(uw_ht_get_cond(arg1)); return 0;
+            uwin::ht_get<uwin::kcond>(arg1).signal(); return 0;
+            //uw_cond_signal(uw_ht_get_cond(arg1)); return 0;
         case SYSCALL_COND_BROADCAST:
-            uw_cond_broadcast(uw_ht_get_cond(arg1)); return 0;
+            uwin::ht_get<uwin::kcond>(arg1).broadcast(); return 0;
+            //uw_cond_broadcast(uw_ht_get_cond(arg1)); return 0;
         case SYSCALL_COND_WAIT:
-            return uw_cond_wait(uw_ht_get_cond(arg1), uw_ht_get_mut(arg2), *(uint64_t*) g2h(arg3));
+            return uwin::ht_get<uwin::kcond>(arg1).wait(uwin::ht_get<uwin::kmut>(arg2), *g2hx<uint64_t>(arg3));
+            //return uw_cond_wait(uw_ht_get_cond(arg1), uw_ht_get_mut(arg2), *(uint64_t*) g2h(arg3));
 
         case SYSCALL_CFG_WRITE:
             uw_cfg_write(g2hx<char>(arg1), g2hx<const char>(arg2)); return 0;
@@ -106,15 +118,20 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
 
 
         case SYSCALL_FILE_OPEN:
-            return uw_ht_put(uw_file_open(g2hx<const char>(arg1), arg2), UW_OBJ_FILE);
+            return uwin::ht_put_new<uwin::kfile>(g2hx<const char>(arg1), arg2);
+            //return uw_ht_put(uw_file_open(g2hx<const char>(arg1), arg2), UW_OBJ_FILE);
         case SYSCALL_FILE_READ:
-            return uw_file_read(uw_ht_get_file(arg1), g2hx<char>(arg2), arg3);
+            return uwin::ht_get<uwin::kfile>(arg1).read(g2hx<char>(arg2), arg3);
+            //return uw_file_read(uw_ht_get_file(arg1), g2hx<char>(arg2), arg3);
         case SYSCALL_FILE_WRITE:
-            return uw_file_write(uw_ht_get_file(arg1), g2hx<const char>(arg2), arg3);
+            return uwin::ht_get<uwin::kfile>(arg1).write(g2hx<const char>(arg2), arg3);
+            //return uw_file_write(uw_ht_get_file(arg1), g2hx<const char>(arg2), arg3);
         case SYSCALL_FILE_SEEK:
-            return uw_file_seek(uw_ht_get_file(arg1), *(int64_t*)g2h(arg2), arg3);
+            return uwin::ht_get<uwin::kfile>(arg1).seek(*g2hx<int64_t>(arg2), arg3);
+            //return uw_file_seek(uw_ht_get_file(arg1), *(int64_t*)g2h(arg2), arg3);
         case SYSCALL_FILE_TELL:
-            *(int64_t*)g2h(arg2) = uw_file_tell(uw_ht_get_file(arg1)); return 0;
+            *g2hx<int64_t>(arg2) = uwin::ht_get<uwin::kfile>(arg1).tell(); return 0;
+            //*(int64_t*)g2h(arg2) = uw_file_tell(uw_ht_get_file(arg1)); return 0;
         case SYSCALL_FILE_GET_FREE_SPACE:
             uw_file_get_free_space(g2hx<uint64_t>(arg1), g2hx<uint64_t>(arg2)); return 0;
         case SYSCALL_FILE_SET_CURRENT_DIRECTORY:
@@ -124,11 +141,15 @@ static uint32_t real_do_syscall(int num, uint32_t arg1,
         case SYSCALL_FILE_STAT:
             uw_file_stat(g2hx<const char>(arg1), g2hx<uw_file_stat_t>(arg2)); return 0;
         case SYSCALL_FILE_FSTAT:
-            uw_file_fstat(uw_ht_get_file(arg1), g2hx<uw_file_stat_t>(arg2)); return 0;
+            uwin::ht_get<uwin::kfile>(arg1).stat(g2hx<uw_file_stat_t>(arg2)); return 0;
+            //uw_file_fstat(uw_ht_get_file(arg1), g2hx<uw_file_stat_t>(arg2)); return 0;
+
         case SYSCALL_FILE_OPENDIR:
-            return uw_ht_put(uw_file_opendir(g2hx<const char>(arg1)), UW_OBJ_DIR);
+            return uwin::ht_put_new<uwin::kdir>(g2hx<const char>(arg1));
+            //return uw_ht_put(uw_file_opendir(g2hx<const char>(arg1)), UW_OBJ_DIR);
         case SYSCALL_FILE_READDIR:
-            return uw_file_readdir(uw_ht_get_dir(arg1), g2hx<char>(arg2), arg3);
+            return uwin::ht_get<uwin::kdir>(arg1).read(g2hx<char>(arg2), arg3);
+            //return uw_file_readdir(uw_ht_get_dir(arg1), g2hx<char>(arg2), arg3);
 
 
         case SYSCALL_SURF_ALLOC:

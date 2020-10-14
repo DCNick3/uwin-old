@@ -21,12 +21,17 @@
 #include <assert.h>
 
 #include "uwin/uwin.h"
-#include "uwin/util/mem.h"
+#include "uwin/handletable.h"
+#include "uwin/kobj/kobj.h"
+#include "uwin/kobj/kdummy.h"
 
 #include <mutex>
 #include <unordered_map>
 #include <memory>
 
+using entry = std::shared_ptr<std::unique_ptr<uwin::kobj>>;
+
+/*
 struct ht_entry {
     int type;
     union {
@@ -56,10 +61,10 @@ struct ht_entry {
             case UW_OBJ_SURF:
                 uw_ui_surf_free((uw_surf_t*) value);
                 break;
-                /*
-            case UW_OBJ_WAVE:
-                uw_ui_wave_close((uw_wave_t*) obj);
-                break;*/
+                //
+            //case UW_OBJ_WAVE:
+              //  uw_ui_wave_close((uw_wave_t*) obj);
+                //break;
             case UW_OBJ_DIR:
                 uw_file_closedir((uw_dir_t*) value);
                 break;
@@ -72,11 +77,11 @@ struct ht_entry {
         }
     }
 };
-
+*/
 
 static std::mutex mut;
-static uint32_t next_handle = TARGET_ADDRESS_SPACE_SIZE; // this will ensure that no user-space pointer will conincide with this. It makes the dummy handle system useless though... TODO: migrate
-static std::unordered_map<uint32_t, std::shared_ptr<ht_entry>> handle_table;
+static uint32_t next_handle = TARGET_ADDRESS_SPACE_SIZE; // this will ensure that no user-space pointer will conincide with this.
+static std::unordered_map<uint32_t, entry> handle_table;
 
 void uw_ht_initialize(void)
 {
@@ -87,18 +92,17 @@ void uw_ht_finalize(void)
     assert("not implemented" == 0);
 }
 
-uint32_t uw_ht_put(void* obj, int type)
+uint32_t uw_ht_put(std::unique_ptr<uwin::kobj> obj)
 {
-    if (obj == NULL)
-        return (uint32_t)-1;
+    assert(obj != nullptr);
+    //if (obj == nullptr)
+    //    return (uint32_t)-1;
 
-    assert(type != UW_OBJ_DUMMY);
+    //assert(!obj->is<uwin::kdummy>());
 
     std::unique_lock<std::mutex> lk(mut);
 
-    auto pentry = std::make_shared<ht_entry>();
-    pentry->type = type;
-    pentry->value = obj;
+    auto pentry = std::make_shared<std::unique_ptr<uwin::kobj>>(std::move(obj));
     
     uint32_t handle = next_handle++;
     uw_log("new handle: %08x\n", handle);
@@ -107,7 +111,7 @@ uint32_t uw_ht_put(void* obj, int type)
     return handle;
 }
 
-void* uw_ht_get(uint32_t handle, int type)
+uwin::kobj* uw_ht_get(uint32_t handle)
 {
     std::unique_lock<std::mutex> lk(mut);
 
@@ -115,27 +119,16 @@ void* uw_ht_get(uint32_t handle, int type)
     assert(p != handle_table.end());
 
     auto& pentry = p->second;
-    assert(pentry->type == type || type == -1);
-    
-    void* res = pentry->value;
 
-    return res;
+    return pentry->get();
 }
 
 uint32_t uw_ht_put_dummy(uint32_t obj, int type)
 {
     std::unique_lock<std::mutex> lk(mut);
-    
-    auto pentry = std::make_shared<ht_entry>();
-    pentry->type = UW_OBJ_DUMMY;
-    pentry->dummy.value = obj;
-    pentry->dummy.type = type;
-    
-    uint32_t handle = next_handle++;
-    uw_log("new handle: %08x\n", handle);
-    handle_table[handle] = pentry;
 
-    return handle;
+    std::unique_ptr<uwin::kobj> dummy = std::make_unique<uwin::kdummy>(type, obj);
+    return uw_ht_put(std::move(dummy));
 }
 
 uint32_t uw_ht_get_dummy(uint32_t handle, int type) {
@@ -144,14 +137,15 @@ uint32_t uw_ht_get_dummy(uint32_t handle, int type) {
     auto p = handle_table.find(handle);
     assert(p != handle_table.end());
 
-    auto& pentry = p->second;
-    assert(pentry->type == UW_OBJ_DUMMY);
-    if (pentry->dummy.type != type) {
-        fprintf(stderr, "Dummy handle type mismatch: got %u, expected %u\n", pentry->dummy.type, type);
+    auto* ptr = p->second.get()->get();
+
+    auto& dummy = ptr->as<uwin::kdummy>();
+    if (dummy.get_type() != type) {
+        fprintf(stderr, "Dummy handle type mismatch: got %u, expected %u\n", dummy.get_type(), type);
         abort();
     }
 
-    return pentry->dummy.value;
+    return dummy.get_data();
 }
 
 int uw_ht_get_dummytype(uint32_t handle) {
@@ -161,8 +155,7 @@ int uw_ht_get_dummytype(uint32_t handle) {
     assert(p != handle_table.end());
 
     auto& pentry = p->second;
-    assert(pentry->type == UW_OBJ_DUMMY);
-    return pentry->dummy.type;
+    return pentry->get()->as<uwin::kdummy>().get_type();
 }
 
 
@@ -176,7 +169,7 @@ uint32_t uw_ht_newref(uint32_t handle) {
 
     uint32_t new_handle = next_handle++;
     uw_log("new handle: %08x\n", new_handle);
-    handle_table[new_handle] = pentry; // copy
+    handle_table[new_handle] = pentry; // copy the shared pointer
 
     return new_handle;
 }
@@ -190,28 +183,20 @@ void uw_ht_delref(uint32_t handle, uint32_t* dummy_type, uint32_t* dummy_value) 
     auto& pentry = p->second;
     //pentry->refcount--; // done by destructor of handle table entry
 
-    if (pentry.use_count() == 1 && pentry->type == UW_OBJ_DUMMY) {
-        if (dummy_type != NULL)
-            *dummy_type = pentry->dummy.type;
-        if (dummy_value != NULL)
-            *dummy_value = pentry->dummy.value;
-    } else {
-        if (dummy_type != NULL)
-            *dummy_type = 0;
-        if (dummy_value != NULL)
-            *dummy_value = 0;
+    if (dummy_type != nullptr || dummy_value != nullptr) {
+        uwin::kdummy *dummy;
+        if (pentry.use_count() == 1 && (dummy = pentry->get()->try_as<uwin::kdummy>()) != nullptr) {
+            if (dummy_type != nullptr)
+                *dummy_type = dummy->get_type();
+            if (dummy_value != nullptr)
+                *dummy_value = dummy->get_data();
+        } else {
+            if (dummy_type != nullptr)
+                *dummy_type = 0;
+            if (dummy_value != nullptr)
+                *dummy_value = 0;
+        }
     }
 
     handle_table.erase(handle);
-}
-
-int uw_ht_gettype(uint32_t handle) {
-    std::unique_lock<std::mutex> lk(mut);
-
-    auto p = handle_table.find(handle);
-    assert(p != handle_table.end());
-
-    auto& pentry = p->second;
-    
-    return pentry->type;
 }

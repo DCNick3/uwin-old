@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(uwin C CXX)
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 option(USE_HALFIX "Use halfix for x86 cpu emulation" ON)
 option(USE_JIT "Use jit for cpu emulation" OFF)
@@ -17,6 +17,7 @@ find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS})
 
 include_directories(ext-deps/boots-ext-di/include)
+include_directories(ext-deps/inipp/inipp)
 
 if("${SDL2_LIBRARIES}" STREQUAL "")
     # CMake is portable? Nope, lol.
@@ -87,7 +88,6 @@ set(UWIN_POSIX_SOURCES
 
 set(UWIN_SOURCES
         ${DLLS_FILE}
-        src/uwin/util/file.cpp
         src/uwin/util/str.cpp
         src/uwin/util/mem.cpp
         src/uwin/ldr.cpp
@@ -98,10 +98,10 @@ set(UWIN_SOURCES
         src/uwin/file.cpp
         src/uwin/win32_mq.cpp
         src/uwin/sdl_ui_gmq.cpp
+        src/uwin/sdl/kobj/ksurf_sdl.cpp
         src/fcaseopen.cpp
         src/main.cpp
-        src/ini.cpp
-        src/uwin/syncronization.cpp)
+        )
 
 if (UNIX)
     list(APPEND UWIN_SOURCES ${UWIN_POSIX_SOURCES})

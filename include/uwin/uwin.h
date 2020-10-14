@@ -12,12 +12,12 @@
 #include "common_def.h"
 #include "uwindows.h"
 #include "uwin/util/log.h"
+#include "uwin/kobj/kfile.h"
+#include "uwin/kobj/ksurf.h"
 
 #include <pthread.h>
 
 //#define UW_HOST_PROG_PATH "../homm3"
-#define UW_CONFIG_PATH "homm3.cfg"
-#define UW_TARGET_CONFIG_GROUP "homm3_config"
 
 
 // assert that we have little endian architecture
@@ -91,11 +91,12 @@ void ldr_print_memory_map(void);
 uint32_t ldr_load_library(const char* module_name);
 uint32_t ldr_get_entry_point(uint32_t module_handle);
 
-extern __thread uint32_t* win32_last_error;
+//extern __thread uint32_t* win32_last_error;
 
-#define win32_err (*win32_last_error)
+//#define win32_err (*win32_last_error)
 
 /* setup platform-dependent fault handler (used by tcg) */
+// TODO: rework this api
 void setup_fault_handler(void);
 
 // TODO: rework this api
@@ -184,18 +185,6 @@ void uw_cond_signal(uw_cond_t* cond);
 void uw_cond_broadcast(uw_cond_t* cond);
 int32_t uw_cond_wait(uw_cond_t* cond, uw_mut_t* mut, uint64_t tmout_us);
 
-// handle table library
-void uw_ht_initialize(void);
-void uw_ht_finalize(void);
-uint32_t uw_ht_put(void* obj, int type);
-uint32_t uw_ht_put_dummy(uint32_t obj, int type);
-uint32_t uw_ht_get_dummy(uint32_t handle, int type);
-int uw_ht_get_dummytype(uint32_t handle);
-void* uw_ht_get(uint32_t handle, int type);
-uint32_t uw_ht_newref(uint32_t handle);
-void uw_ht_delref(uint32_t handle, uint32_t* dummy_type, uint32_t* dummy_value);
-int uw_ht_gettype(uint32_t handle);
-
 // config library
 void uw_cfg_initialize(void);
 void uw_cfg_finalize(void);
@@ -203,44 +192,31 @@ void uw_cfg_write(const char* key, const char* value);
 int32_t uw_cfg_read(const char* key, char* buffer, uint32_t size);
 void uw_cfg_commit(void);
 
-typedef struct uw_file uw_file_t;
+//typedef struct uw_file uw_file_t;
 typedef struct uw_dir uw_dir_t;
 
 // file helpers. Paths are from win32
 void uw_file_initialize(void);
 void uw_file_finalize(void);
 void uw_file_set_host_directory(const char* path);
-uw_file_t* uw_file_open(const char* file_name, int mode);
-int32_t uw_file_read(uw_file_t* file, char* buffer, uint32_t length);
-int32_t uw_file_write(uw_file_t* file, const char* buffer, uint32_t length);
-int32_t uw_file_seek(uw_file_t* file, int64_t seek, uint32_t origin);
-int64_t uw_file_tell(uw_file_t* file);
-void uw_file_close(uw_file_t* file);
+FILE* uw_file_open(const char* file_name, int mode);
+//int32_t uw_file_read(uw_file_t* file, char* buffer, uint32_t length);
+//int32_t uw_file_write(uw_file_t* file, const char* buffer, uint32_t length);
+//int32_t uw_file_seek(uw_file_t* file, int64_t seek, uint32_t origin);
+//int64_t uw_file_tell(uw_file_t* file);
+//void uw_file_close(uwin::kfile* file);
 void uw_file_get_free_space(uint64_t* free_bytes, uint64_t* total_bytes);
 int32_t uw_file_set_current_directory(const char* new_current_directory);
 void uw_file_get_current_directory(char* buffer, uint32_t size);
 void uw_file_stat(const char* file_name, uw_file_stat_t* stat);
-void uw_file_fstat(uw_file_t* file, uw_file_stat_t* stat);
-uw_dir_t* uw_file_opendir(const char* file_name);
-int32_t uw_file_readdir(uw_dir_t* dir, char* buffer, uint32_t size);
-void uw_file_closedir(uw_dir_t* dir);
+//void uw_file_fstat(uw_file_t* file, uw_file_stat_t* stat);
+//DIR* uw_file_opendir(const char* file_name)
+//int32_t uw_file_readdir(uw_dir_t* dir, char* buffer, uint32_t size);
+//void uw_file_closedir(uw_dir_t* dir);
 
 typedef struct uw_surf uw_surf_t;
 typedef struct uw_wave uw_wave_t;
 
-typedef struct uw_locked_surf_desc {
-    void* data;
-    uint32_t pitch;
-    uint32_t w, h;
-} uw_locked_surf_desc_t;
-
-typedef struct target_uw_locked_surf_desc {
-    uint32_t data;
-    uint32_t pitch;
-    uint32_t w, h;
-} __attribute__((packed)) target_uw_locked_surf_desc_t;
-
-// ui libraries: gfx (surface manipulation), input and wave
 // all pixel formats are RGB565
 void uw_ui_initialize(int interactive);
 void uw_ui_finalize(void);
@@ -254,11 +230,11 @@ void uw_ui_surf_blit_srckeyed(uw_surf_t* src, const uw_rect_t* src_rect, uw_surf
 void uw_ui_surf_fill(uw_surf_t* dst, uw_rect_t* dst_rect, uint16_t color);
 uw_surf_t* uw_ui_surf_get_primary(void); // should be called only once
 
-uw_wave_t* uw_ui_wave_open(uint32_t sample_rate, uint32_t bits_per_sample);
+/*uw_wave_t* uw_ui_wave_open(uint32_t sample_rate, uint32_t bits_per_sample);
 void uw_ui_wave_close(uw_wave_t* wave);
 void uw_ui_wave_reset(uw_wave_t* wave);
 uint32_t uw_ui_wave_wait_message(uw_wave_t* wave);
-void uw_ui_wave_add_buffer(uw_wave_t* wave, void* buffer, uint32_t size);
+void uw_ui_wave_add_buffer(uw_wave_t* wave, void* buffer, uint32_t size);*/
 
 // sighandler
 void uw_sighandler_initialize(void);

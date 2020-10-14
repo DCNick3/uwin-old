@@ -24,7 +24,6 @@
 #include "uwin/util/align.h"
 #include "uwin/util/mem.h"
 #include "uwin/util/str.h"
-#include "uwin/util/file.h"
 
 #include <string.h>
 #include "fcaseopen.h"
@@ -37,6 +36,7 @@
 #include <memory>
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 
 struct ldr_override
 {
@@ -363,11 +363,13 @@ static module* load_pe_module(std::string module_name)
     int res = -1;
     bool found_override = false;
     for (size_t i = 0; i < sizeof(ldr_overrides) / sizeof(*ldr_overrides); i++) {
-        if (uw_ascii_strcasecmp(module_name.c_str(), ldr_overrides[i].name) == 0) {
+        if (module_name == ldr_overrides[i].name) {
             uw_log("found override\n");
             res = load_pe(ldr_overrides[i].data, *mod);
             found_override = true;
         }
+        //if (uw_ascii_strcasecmp(module_name.c_str(), ldr_overrides[i].name) == 0) {
+        //}
     }
 
     if (!found_override) {
@@ -483,13 +485,13 @@ uint32_t ldr_get_module_filename(uint32_t module_handle, char* buffer, int buffe
     auto res = hinstance_table.find(module_handle);
     //module *res = stbds_hmget(hinstance_table, module_handle);
     if (res == hinstance_table.end()) {
-        win32_err = ERROR_FILE_NOT_FOUND;
+        //win32_err = ERROR_FILE_NOT_FOUND;
         return 0;
     }
     std::string& hmod_name = res->second->name;
     std::string p = std::string(UW_GUEST_PROG_PATH) + "\\" + hmod_name;
     uint32_t r = return_string_to_buffer(buffer, buffer_size, p);
-    win32_err = ERROR_SUCCESS;
+    //win32_err = ERROR_SUCCESS;
     return r;
 }
 uint32_t ldr_get_module_handle(const char* module_name) {
@@ -506,14 +508,14 @@ uint32_t ldr_get_module_handle(const char* module_name) {
         lo += ".dll";
         res = module_table.find(lo);
         if (res == module_table.end()) {
-            win32_err = ERROR_FILE_NOT_FOUND;
+            //win32_err = ERROR_FILE_NOT_FOUND;
 
             uw_log("ldr_get_module_handle(%s) -> 0\n", module_name);
             return 0;
         }
     }
     uw_log("ldr_get_module_handle(%s) -> %08x\n", module_name, res->second->image_base);
-    win32_err = ERROR_SUCCESS;
+    //win32_err = ERROR_SUCCESS;
     return res->second->image_base;
 }
 
@@ -543,25 +545,23 @@ char* ldr_beautify_address(uint32_t addr) {
     return uw_strdup_printf("%20s + 0x%08x", closest_name.c_str(), addr - closest_base);
 }
 
-void ldr_write_gdb_setup_script(int port, const char* debug_path, FILE* f) {
+void ldr_write_gdb_setup_script(int port, std::filesystem::path debug_path, FILE* f) {
     fprintf(f, "target remote localhost:%d\n", port);
 
     for (auto const& x : module_table)
     {
         module& module = *x.second;
         const std::string& name = x.first;
-        
-        char* raw_name = uw_strdup(name.c_str());
-        *rindex(raw_name, '.') = '\0';
-        char* path = uw_strdup_printf("%s/%s.elf", debug_path, raw_name);
-        uw_free(raw_name);
-        
-        if (uw_test_file(path, UW_TEST_FILE_EXISTS)) {
-            fprintf(f, "add-symbol-file %s 0x%08x\n", path, (unsigned)module.code_base);
+
+        std::string raw_name = name;
+        raw_name.erase(raw_name.begin() + raw_name.find_last_of('.'), raw_name.end());
+        //*rindex(raw_name.data(), '.') = '\0';
+        auto path = debug_path / (raw_name + ".elf");
+
+
+        if (std::filesystem::exists(path)) {
+            fprintf(f, "add-symbol-file %s 0x%08x\n", path.c_str(), (unsigned)module.code_base);
         }
-        
-        uw_free(path);
-        //printf("%s -> %08x\n", name, );
     }
 }
 

@@ -10,3 +10,6 @@
 [submodule "ext-deps/boots-ext-di"]
 	path = ext-deps/boots-ext-di
 	url = https://github.com/boost-ext/di.git
+[submodule "ext-deps/inipp"]
+	path = ext-deps/inipp
+	url = https://github.com/mcmtroffaes/inipp.git

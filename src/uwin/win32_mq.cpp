@@ -1,6 +1,7 @@
 
 #include "uwin/uwin.h"
 #include "uwin/util/mem.h"
+#include "uwin/handletable.h"
 
 #include <assert.h>
 #include <semaphore.h>

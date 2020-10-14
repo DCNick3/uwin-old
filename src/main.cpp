@@ -1,5 +1,6 @@
 
 #include "uwin/uwin.h"
+#include "uwin/handletable.h"
 
 #include <stdio.h>
 #include <stdlib.h>
