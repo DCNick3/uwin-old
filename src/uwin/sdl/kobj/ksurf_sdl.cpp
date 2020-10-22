@@ -184,7 +184,7 @@ namespace uwin {
 
             // TODO: clipping of the dst rectangle is not done
             SDL_Rect srect, drect;
-            SDL_Rect *psrect = NULL, *pdrect = NULL;
+            SDL_Rect *psrect = nullptr, *pdrect = nullptr;
             if (src_rect) {
                 srect = uw_rect_to_sdl_rect(src_rect);
                 psrect = &srect;
@@ -228,7 +228,7 @@ namespace uwin {
 
             // TODO: clipping of the dst rectangle is not done
             SDL_Rect srect, drect;
-            SDL_Rect *psrect = NULL, *pdrect = NULL;
+            SDL_Rect *psrect = nullptr, *pdrect = nullptr;
             if (src_rect) {
                 srect = uw_rect_to_sdl_rect(src_rect);
                 psrect = &srect;
@@ -274,7 +274,7 @@ namespace uwin {
                 int r = SDL_FillRect(dst, &rect, color);
                 assert(!r);
             } else {
-                int r = SDL_FillRect(dst, NULL, color);
+                int r = SDL_FillRect(dst, nullptr, color);
                 assert(!r);
             }
 

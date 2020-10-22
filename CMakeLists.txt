@@ -25,7 +25,7 @@ if("${SDL2_LIBRARIES}" STREQUAL "")
     set(SDL2_LIBRARIES "SDL2::SDL2")
 endif()
 
-set(USED_LIBS m Threads::Threads ${SDL2_LIBRARIES})
+set(USED_LIBS m Threads::Threads ${SDL2_LIBRARIES} stdc++fs)
 
 
 set(HALFIX_SOURCES

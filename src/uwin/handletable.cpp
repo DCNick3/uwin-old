@@ -17,8 +17,7 @@
  *  along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pthread.h>
-#include <assert.h>
+#include <cassert>
 
 #include "uwin/uwin.h"
 #include "uwin/handletable.h"
@@ -83,13 +82,13 @@ static std::mutex mut;
 static uint32_t next_handle = TARGET_ADDRESS_SPACE_SIZE; // this will ensure that no user-space pointer will conincide with this.
 static std::unordered_map<uint32_t, entry> handle_table;
 
-void uw_ht_initialize(void)
+void uw_ht_initialize()
 {
 }
 
-void uw_ht_finalize(void)
+void uw_ht_finalize()
 {
-    assert("not implemented" == 0);
+    assert("not implemented" == nullptr);
 }
 
 uint32_t uw_ht_put(std::unique_ptr<uwin::kobj> obj)

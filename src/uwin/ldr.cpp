@@ -25,18 +25,30 @@
 #include "uwin/util/mem.h"
 #include "uwin/util/str.h"
 
-#include <string.h>
+#include <cstring>
 #include "fcaseopen.h"
 
-#include <assert.h>
+#include <cassert>
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <memory>
 #include <algorithm>
 #include <cctype>
+
+#if __has_include(<filesystem>)
 #include <filesystem>
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace std { // NOLINT(cert-dcl58-cpp)
+    namespace filesystem = std::experimental::filesystem;
+}
+#else
+#error "no filesystem support ='("
+#endif
+
 
 struct ldr_override
 {
@@ -358,7 +370,7 @@ static module* load_pe_module(std::string module_name)
             return r->second.get();
     }
     
-    auto mod = std::unique_ptr<module>(new module(module_name)); //uw_new0(module, 1);
+    auto mod = std::make_unique<module>(module_name); //uw_new0(module, 1);
     
     int res = -1;
     bool found_override = false;

@@ -28,7 +28,7 @@ namespace uwin {
 
         static ksurf_sdl get_primary();
 
-        inline SDL_Surface* get() const { return _surf.get(); }
+        [[nodiscard]] inline SDL_Surface* get() const { return _surf.get(); }
 
         struct destroyer {
             void operator()(SDL_Surface* surf);

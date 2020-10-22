@@ -1,10 +1,9 @@
-#ifndef QEMU_H
-#define QEMU_H
 
+#pragma once
 
 #include "mem.h"
 
-#include <stdint.h>
+#include <cstdint>
 //#include <windows.h>
 //#include <winternl.h>
 
@@ -87,7 +86,7 @@ uint32_t ldr_get_module_handle(const char* module_name);
 uint32_t ldr_get_proc_address(uint32_t module_handle, const char* proc_name);
 char* ldr_beautify_address(uint32_t addr);
 void ldr_write_gdb_setup_script(int port, const char* debug_path, FILE* f);
-void ldr_print_memory_map(void);
+void ldr_print_memory_map();
 uint32_t ldr_load_library(const char* module_name);
 uint32_t ldr_get_entry_point(uint32_t module_handle);
 
@@ -95,9 +94,9 @@ uint32_t ldr_get_entry_point(uint32_t module_handle);
 
 //#define win32_err (*win32_last_error)
 
-/* setup platform-dependent fault handler (used by tcg) */
+/* setup platform-dependent fault handler (used by tcg (this thing is no longer here)) */
 // TODO: rework this api
-void setup_fault_handler(void);
+void setup_fault_handler();
 
 // TODO: rework this api
 // Why would one want to make the target memory executable anyway?
@@ -113,9 +112,9 @@ void setup_fault_handler(void);
 // (somewhat) platform-independent API for guest memory mapping
 
 /* initializes mappings. returns a guest_base */
-void* uw_memory_map_initialize(void);
+void* uw_memory_map_initialize();
 /* uninitializes mappings */
-void uw_memory_map_finalize(void);
+void uw_memory_map_finalize();
 /* map a physical memory to a fixed location. size MUST be page-aligned */
 int uw_target_map_memory_fixed(uint32_t address, uint32_t size, int prot);
 /* map a physical memory _somewhere_. size MUST be page-aligned */
@@ -142,23 +141,23 @@ void* uw_cpu_alloc_context();
 void uw_cpu_free_context(void* cpu_context);
 void uw_cpu_panic(const char* message);
 void uw_cpu_setup_thread(void* cpu_context, uw_target_thread_data_t *params);
-void uw_cpu_syscall_enter(void);
-void uw_cpu_syscall_exit(void);
+void uw_cpu_syscall_enter();
+void uw_cpu_syscall_exit();
 
 void uw_cpu_loop(void* cpu_context);
-void uw_break_cpu_loop(void);
+void uw_break_cpu_loop();
 
-uint64_t uw_get_time_us(void);  // TODO: migrate from this function
-uint64_t uw_get_monotonic_time(void);
-uint64_t uw_get_real_time(void);
-uint32_t uw_get_timezone_offset(void);
+uint64_t uw_get_time_us();  // TODO: migrate from this function
+uint64_t uw_get_monotonic_time();
+uint64_t uw_get_real_time();
+uint32_t uw_get_timezone_offset();
 void uw_sleep(uint32_t time_ms);
 
 typedef struct uw_sem uw_sem_t;
 
 // semaphore library
-void uw_sem_initialize(void);
-void uw_sem_finalize(void);
+void uw_sem_initialize();
+void uw_sem_finalize();
 uw_sem_t* uw_sem_alloc(int count);
 void uw_sem_destroy(uw_sem_t* sem);
 void uw_sem_post(uw_sem_t* sem);
@@ -167,8 +166,8 @@ int32_t uw_sem_wait(uw_sem_t* sem, uint64_t tmout_us);
 typedef struct uw_mut uw_mut_t;
 
 // mutex library
-void uw_mut_initialize(void);
-void uw_mut_finalize(void);
+void uw_mut_initialize();
+void uw_mut_finalize();
 uw_mut_t* uw_mut_alloc();
 void uw_mut_destroy(uw_mut_t* mut);
 int32_t uw_mut_lock(uw_mut_t* mut, uint64_t tmout_us);
@@ -177,8 +176,8 @@ void uw_mut_unlock(uw_mut_t* mut);
 typedef struct uw_cond uw_cond_t;
 
 // conditional variable library
-void uw_cond_initialize(void);
-void uw_cond_finalize(void);
+void uw_cond_initialize();
+void uw_cond_finalize();
 uw_cond_t* uw_cond_alloc();
 void uw_cond_destroy(uw_cond_t* cond);
 void uw_cond_signal(uw_cond_t* cond);
@@ -186,18 +185,18 @@ void uw_cond_broadcast(uw_cond_t* cond);
 int32_t uw_cond_wait(uw_cond_t* cond, uw_mut_t* mut, uint64_t tmout_us);
 
 // config library
-void uw_cfg_initialize(void);
-void uw_cfg_finalize(void);
+void uw_cfg_initialize();
+void uw_cfg_finalize();
 void uw_cfg_write(const char* key, const char* value);
 int32_t uw_cfg_read(const char* key, char* buffer, uint32_t size);
-void uw_cfg_commit(void);
+void uw_cfg_commit();
 
 //typedef struct uw_file uw_file_t;
 typedef struct uw_dir uw_dir_t;
 
 // file helpers. Paths are from win32
-void uw_file_initialize(void);
-void uw_file_finalize(void);
+void uw_file_initialize();
+void uw_file_finalize();
 void uw_file_set_host_directory(const char* path);
 FILE* uw_file_open(const char* file_name, int mode);
 //int32_t uw_file_read(uw_file_t* file, char* buffer, uint32_t length);
@@ -219,16 +218,16 @@ typedef struct uw_wave uw_wave_t;
 
 // all pixel formats are RGB565
 void uw_ui_initialize(int interactive);
-void uw_ui_finalize(void);
+void uw_ui_finalize();
 
 uw_surf_t* uw_ui_surf_alloc(int32_t width, int32_t height);
 void uw_ui_surf_free(uw_surf_t* surf);
-void uw_ui_surf_lock(uw_surf_t* surf, uw_locked_surf_desc_t* locked);
+void uw_ui_surf_lock(uw_surf_t* surf, uwin::uw_locked_surf_desc_t* locked);
 void uw_ui_surf_unlock(uw_surf_t* surf);
 void uw_ui_surf_blit(uw_surf_t* src, const uw_rect_t* src_rect, uw_surf_t* dst, uw_rect_t* dst_rect);
 void uw_ui_surf_blit_srckeyed(uw_surf_t* src, const uw_rect_t* src_rect, uw_surf_t* dst, uw_rect_t* dst_rect, uint16_t srckey_color);
 void uw_ui_surf_fill(uw_surf_t* dst, uw_rect_t* dst_rect, uint16_t color);
-uw_surf_t* uw_ui_surf_get_primary(void); // should be called only once
+uw_surf_t* uw_ui_surf_get_primary(); // should be called only once
 
 /*uw_wave_t* uw_ui_wave_open(uint32_t sample_rate, uint32_t bits_per_sample);
 void uw_ui_wave_close(uw_wave_t* wave);
@@ -237,18 +236,18 @@ uint32_t uw_ui_wave_wait_message(uw_wave_t* wave);
 void uw_ui_wave_add_buffer(uw_wave_t* wave, void* buffer, uint32_t size);*/
 
 // sighandler
-void uw_sighandler_initialize(void);
-void uw_sighandler_finalize(void);
+void uw_sighandler_initialize();
+void uw_sighandler_finalize();
 
 // guest thread management
-void uw_thread_initialize(void);
-void uw_thread_finalize(void);
+void uw_thread_initialize();
+void uw_thread_finalize();
 void* uw_create_initial_thread(uw_target_process_data_t *process_data, uint32_t entry, uint32_t entry_param, uint32_t stack_size);
 void uw_start_initial_thread(void* initial_thread_param);
 uint32_t uw_thread_create(uint32_t entry, uint32_t entry_param, uint32_t stack_size, uint32_t suspended); // unlike other APIs, this one returns a handle
 int32_t uw_thread_suspend(uw_thread_t* thread);
 int32_t uw_thread_resume(uw_thread_t* thread);
-void uw_thread_leave(void); // leave the current thread
+void uw_thread_leave(); // leave the current thread
 uw_target_thread_data_t* uw_thread_get_data(uw_thread_t* thread);
 //pthread_mutex_t* uw_thread_get_table_mutex(void);
 void uw_thread_wait(uw_thread_t* thread);
@@ -276,8 +275,8 @@ typedef struct uw_gmq_msg {
 #define UW_GM_THREAD_DIED       0xc
 
 // global message queue
-void uw_gmq_initialize(void);
-void uw_gmq_finalize(void);
+void uw_gmq_initialize();
+void uw_gmq_finalize();
 void uw_gmq_post(int32_t message, void* param1, void* param2);
 void uw_gmq_poll(uw_gmq_msg_t* result_message); // should be called only by main thread
 
@@ -292,11 +291,11 @@ typedef struct uw_win32_mq_msg {
 } __attribute__((packed)) uw_win32_mq_msg_t;
 
 // win32 thread-local message queue
-void uw_win32_mq_initialize(void);
-void uw_win32_mq_finalize(void);
-void uw_win32_mq_subscribe_global(void); // subscribe to input events
+void uw_win32_mq_initialize();
+void uw_win32_mq_finalize();
+void uw_win32_mq_subscribe_global(); // subscribe to input events
 void uw_win32_mq_publish_global_message(uw_gmq_msg_t* message);
-uw_win32_mq_t* uw_win32_mq_create(void);
+uw_win32_mq_t* uw_win32_mq_create();
 void uw_win32_mq_free(uw_win32_mq_t* mq);
 void uw_win32_mq_post(uw_thread_t* thread, uint32_t hwnd, uint32_t message, uint32_t wparam, uint32_t lparam);
 //uint32_t uw_win32_mq_send(uw_thread_id_t thread_id, uint32_t hwnd, uint32_t message, uint32_t wparam, uint32_t lparam);
@@ -333,5 +332,3 @@ extern __thread uw_target_thread_data_t* uw_current_thread_data;
 //extern abi_ulong target_idt_base;
 //extern abi_ulong target_gdt_base;
 
-
-#endif
